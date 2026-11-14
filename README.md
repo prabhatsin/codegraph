@@ -19,9 +19,24 @@ CodeGraph answers these questions by **walking edges in a graph database**: one 
 
 All numbers come from the [`requests`](https://github.com/psf/requests) codebase (19 files, 46 classes, 237 functions). They can be reproduced with the scripts in this repo.
 
-### 1. Retrieval: graph vs vector vs BM25, at the same token budget
+Ground truth for results 1–3 comes from a **runtime trace**: we run real `requests` code and record every function call it makes. The questions are "what breaks if I change X?" and "what does X depend on?", within 2 hops (118 questions on held-out runs).
 
-Ground truth comes from a **runtime trace**: we run real `requests` code and record every function call it makes. The questions are "what breaks if I change X?" and "what does X depend on?", within 2 hops. Each baseline gets **exactly the token budget the graph used**.
+### 1. Tokens: about 10× fewer for the same answers
+
+How many tokens does each method have to read to find what the graph found? The baselines keep reading their ranked results until they reach the graph's recall. A method that never gets there is charged for the whole codebase.
+
+| Method | Avg tokens | vs CodeGraph |
+|---|---|---|
+| **CodeGraph (HydraDB)** | **1,601** | **1.0×** |
+| Vector RAG (Gemini embeddings) | 14,960 | 9.3× |
+| Open every relevant file (grep + read) | 16,813 | 10.5× |
+| BM25 (keyword) | 19,018 | 11.9× |
+
+**To reach the same answers, an agent reading whole files burns about 10× more tokens, and vector RAG about 9× more.**
+
+### 2. Retrieval: graph vs vector vs BM25, at the same token budget
+
+The same comparison from the other side: each baseline gets **exactly the token budget the graph used**, and we measure how much of the truth it finds. These numbers are for the full trace, before learning.
 
 | Method | Recall | Avg tokens |
 |---|---|---|
@@ -31,7 +46,7 @@ Ground truth comes from a **runtime trace**: we run real `requests` code and rec
 
 **With the same budget, the graph finds about 5× more of the affected code than vector RAG.**
 
-### 2. A graph that improves itself
+### 3. A graph that improves itself
 
 Static parsing can't see everything: dunder methods, dynamic dispatch, `with` blocks. So CodeGraph **learns from execution**: `learn.py` takes calls seen at runtime that the graph is missing and writes them into HydraDB as `CALLS {how: "runtime"}` edges.
 
@@ -44,7 +59,7 @@ To keep the evaluation honest, the trace is **split**. The graph learns from *tr
 | BM25 | 25% |
 | Vector RAG | 20% |
 
-### 3. A real agent: Claude Code (Haiku) with and without CodeGraph
+### 4. A real agent: Claude Code (Haiku) with and without CodeGraph
 
 `agent_bench.py` runs Claude Code headless on the same questions, once with the CodeGraph MCP server and once with grep/read only. It checks each answer for the real callers: either by name, or by a cited line inside the caller next to its file name. 3 questions × 2 runs each:
 
@@ -168,7 +183,7 @@ python learn.py         # add the runtime edges the parser missed
 
 ```bash
 python bench.py                    # retrieval: graph vs BM25 vs vector (vector needs GEMINI_API_KEY in .env)
-python bench.py trace_test.json    # held-out runs only, before/after learn.py
+python bench.py trace_test.json    # held-out runs: recall at equal budget + tokens needed (run before and after learn.py)
 python agent_bench.py --runs 2     # Claude Code (Haiku), with vs without CodeGraph
 ```
 

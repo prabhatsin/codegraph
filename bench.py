@@ -145,3 +145,47 @@ for name, t in totals.items():
     print(f"{name:<8} {t['recall'] / n:>7.0%} {t['tokens'] // n:>11}")
 
 
+
+
+# ---------- Experiment 2: tokens needed to find what the graph found ----------
+# Flip the question: instead of a fixed budget, let each method keep reading
+# until it has found as much of the truth as the graph did. How many tokens
+# does that take?
+SRC = Path("../sample_repo/src")
+file_tokens = {f: len((SRC / f).read_text()) // 4
+               for f in {funcs[k]["file"] for k in funcs}}
+corpus = sum(tokens(k) for k in keys)
+
+
+def tokens_to_match(ranked, q, goal):
+    found, used = set(), 0
+    for k in ranked:
+        if k == q["target"]:
+            continue
+        used += tokens(k)
+        if k in q["truth"]:
+            found.add(k)
+            if len(found) / len(q["truth"]) >= goal:
+                return used
+    return corpus  # never got there: it read everything
+
+
+spend = {name: 0 for name in ["graph", "whole files", *retrievers]}
+matched = 0
+for q in questions:
+    got = graph_retrieve(q)
+    goal = len(set(got) & q["truth"]) / len(q["truth"])
+    if goal == 0:
+        continue
+    matched += 1
+    spend["graph"] += sum(tokens(k) for k in got)
+    # what an agent pays if it opens every file that holds a true answer
+    files = {funcs[k]["file"] for k in q["truth"]} | {funcs[q["target"]]["file"]}
+    spend["whole files"] += sum(file_tokens[f] for f in files)
+    for name, rank in retrievers.items():
+        spend[name] += tokens_to_match(rank(q), q, goal)
+
+print(f"\nTokens needed to find what the graph found ({matched} questions)\n")
+print(f"{'method':<12} {'avg tokens':>11} {'vs graph':>9}")
+for name, total in spend.items():
+    print(f"{name:<12} {total // matched:>11} {total / spend['graph']:>8.1f}x")
