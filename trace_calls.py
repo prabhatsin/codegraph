@@ -64,18 +64,24 @@ def profiler(frame, event, arg):
             edges.add((caller, callee))
 
 
-def scenarios():
+def train_scenarios():
+    """Runs the graph LEARNS from."""
     requests.get(URL + "/ok", params={"q": "1"}).json()
     requests.post(URL + "/ok", json={"a": 1})
+    requests.get(URL + "/redirect")
+    with requests.Session() as s:
+        s.get(URL + "/ok", headers={"X-Test": "1"}, cookies={"a": "b"})
+
+
+def test_scenarios():
+    """Runs the benchmark is SCORED on (never shown to the graph)."""
     requests.put(URL + "/ok", data="x")
     requests.patch(URL + "/ok", data={"a": "b"})
     requests.delete(URL + "/ok")
     requests.head(URL + "/ok")
     requests.options(URL + "/ok")
-    requests.get(URL + "/redirect")
     requests.get(URL + "/auth", auth=("user", "pass"))
     with requests.Session() as s:
-        s.get(URL + "/ok", headers={"X-Test": "1"}, cookies={"a": "b"})
         s.get(URL + "/ok").content
     r = requests.get(URL + "/missing")
     try:
@@ -84,10 +90,17 @@ def scenarios():
         pass
 
 
-sys.setprofile(profiler)
-scenarios()
-sys.setprofile(None)
+def record(fn):
+    edges.clear()
+    sys.setprofile(profiler)
+    fn()
+    sys.setprofile(None)
+    return set(edges)
 
-Path("trace_edges.json").write_text(json.dumps(sorted(edges), indent=1))
-print("traced call edges:", len(edges))
-print("functions seen   :", len({k for e in edges for k in e}))
+
+train, test = record(train_scenarios), record(test_scenarios)
+Path("trace_train.json").write_text(json.dumps(sorted(train), indent=1))
+Path("trace_test.json").write_text(json.dumps(sorted(test), indent=1))
+Path("trace_edges.json").write_text(json.dumps(sorted(train | test), indent=1))
+print(f"train edges: {len(train)}   test edges: {len(test)}   all: {len(train | test)}")
+print(f"test edges never seen in train: {len(test - train)}")

@@ -16,7 +16,10 @@ MAX_LINES = 40  # same per-function cap as context()
 
 g = json.load(open("graph.json"))
 funcs = {n["id"]: n for n in g["nodes"] if n["kind"] in ("Function", "Class")}
-trace = [tuple(e) for e in json.load(open("trace_edges.json"))]
+
+TRUTH = sys.argv[1] if len(sys.argv) > 1 else "trace_edges.json"
+trace = [tuple(e) for e in json.load(open(TRUTH))]
+
 
 
 def tokens(key):
@@ -140,3 +143,5 @@ print(f"{n} questions ({sum(q['kind'] == 'impact' for q in questions)} impact, "
 print(f"{'method':<8} {'recall':>7} {'avg tokens':>11}")
 for name, t in totals.items():
     print(f"{name:<8} {t['recall'] / n:>7.0%} {t['tokens'] // n:>11}")
+
+
