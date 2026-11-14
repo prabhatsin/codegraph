@@ -1,0 +1,163 @@
+[
+  {
+    "question": "Session.send",
+    "mode": "codegraph",
+    "run": 1,
+    "ok": true,
+    "cost": 0.0147013,
+    "api_s": 8.166,
+    "turns": 4,
+    "output_tokens": 679,
+    "found": "3/3",
+    "missed": []
+  },
+  {
+    "question": "Session.send",
+    "mode": "codegraph",
+    "run": 2,
+    "ok": true,
+    "cost": 0.0159401,
+    "api_s": 9.329,
+    "turns": 4,
+    "output_tokens": 884,
+    "found": "3/3",
+    "missed": []
+  },
+  {
+    "question": "Session.send",
+    "mode": "grep",
+    "run": 1,
+    "ok": true,
+    "cost": 0.054097799999999995,
+    "api_s": 18.739,
+    "turns": 5,
+    "output_tokens": 1713,
+    "found": "2/3",
+    "missed": [
+      "request"
+    ]
+  },
+  {
+    "question": "Session.send",
+    "mode": "grep",
+    "run": 2,
+    "ok": true,
+    "cost": 0.033671900000000005,
+    "api_s": 18.838,
+    "turns": 9,
+    "output_tokens": 1883,
+    "found": "2/3",
+    "missed": [
+      "request"
+    ]
+  },
+  {
+    "question": "merge_cookies",
+    "mode": "codegraph",
+    "run": 1,
+    "ok": true,
+    "cost": 0.023757,
+    "api_s": 12.752,
+    "turns": 5,
+    "output_tokens": 1155,
+    "found": "3/3",
+    "missed": []
+  },
+  {
+    "question": "merge_cookies",
+    "mode": "codegraph",
+    "run": 2,
+    "ok": true,
+    "cost": 0.014727299999999999,
+    "api_s": 8.081,
+    "turns": 4,
+    "output_tokens": 754,
+    "found": "3/3",
+    "missed": []
+  },
+  {
+    "question": "merge_cookies",
+    "mode": "grep",
+    "run": 1,
+    "ok": true,
+    "cost": 0.051342200000000005,
+    "api_s": 13.034,
+    "turns": 4,
+    "output_tokens": 1348,
+    "found": "2/3",
+    "missed": [
+      "Session.request"
+    ]
+  },
+  {
+    "question": "merge_cookies",
+    "mode": "grep",
+    "run": 2,
+    "ok": true,
+    "cost": 0.017937800000000004,
+    "api_s": 13.42,
+    "turns": 7,
+    "output_tokens": 1552,
+    "found": "1/3",
+    "missed": [
+      "Session.prepare_request",
+      "Session.request"
+    ]
+  },
+  {
+    "question": "CaseInsensitiveDict.__setitem__",
+    "mode": "codegraph",
+    "run": 1,
+    "ok": true,
+    "cost": 0.0164602,
+    "api_s": 8.638,
+    "turns": 4,
+    "output_tokens": 1002,
+    "found": "3/3",
+    "missed": []
+  },
+  {
+    "question": "CaseInsensitiveDict.__setitem__",
+    "mode": "codegraph",
+    "run": 2,
+    "ok": true,
+    "cost": 0.0174851,
+    "api_s": 10.127,
+    "turns": 4,
+    "output_tokens": 1033,
+    "found": "3/3",
+    "missed": []
+  },
+  {
+    "question": "CaseInsensitiveDict.__setitem__",
+    "mode": "grep",
+    "run": 1,
+    "ok": true,
+    "cost": 0.03934320000000001,
+    "api_s": 18.137,
+    "turns": 8,
+    "output_tokens": 1574,
+    "found": "0/3",
+    "missed": [
+      "PreparedRequest.prepare_headers",
+      "PreparedRequest.prepare_body",
+      "PreparedRequest.prepare_content_length"
+    ]
+  },
+  {
+    "question": "CaseInsensitiveDict.__setitem__",
+    "mode": "grep",
+    "run": 2,
+    "ok": true,
+    "cost": 0.0325655,
+    "api_s": 21.059,
+    "turns": 6,
+    "output_tokens": 1855,
+    "found": "0/3",
+    "missed": [
+      "PreparedRequest.prepare_headers",
+      "PreparedRequest.prepare_body",
+      "PreparedRequest.prepare_content_length"
+    ]
+  }
+]
