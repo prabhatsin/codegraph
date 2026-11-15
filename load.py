@@ -44,4 +44,3 @@ with GraphDatabase.driver("bolt://127.0.0.1:7687", auth=("neo4j", TOKEN)) as dri
         print("get() reaches within 3 calls:")
         for r in rows:
             print("  ", r["key"])
-

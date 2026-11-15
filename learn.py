@@ -32,3 +32,4 @@ for caller, callee in edges:
     print(f"  + {caller.split('::')[1]} -> {callee.split('::')[1]}")
 
 print(f"\n{TRACE}: {known} calls already in the graph, {added} learned from runtime")
+
