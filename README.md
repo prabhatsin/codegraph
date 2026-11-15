@@ -4,7 +4,7 @@
 
 Built for the HydraDB 48-hour hackathon, Track 2: *the context layer for agents, traversing structure instead of burning tokens.*
 
-**Live demo:** https://YOUR-USERNAME-codegraph.hf.space (HydraDB + the CodeGraph UI, loaded with `rich`; every click is a real HydraDB query)
+**Live demo:** https://codegraph-deploy-production.up.railway.app/ (HydraDB + the CodeGraph UI, loaded with `rich`; every click is a real HydraDB query)
 
 ```bash
 python codegraph.py index ~/code/any-python-repo    # parse it into a graph in HydraDB
@@ -187,21 +187,26 @@ claude
 python ui_server.py ../rich_repo        # then open http://localhost:8765
 ```
 
-### 5. Deploy (Hugging Face Spaces, Docker)
+### 5. Deploy (Railway, Docker)
 
-`deploy/` holds a Dockerfile built on the official `ghcr.io/hydra-db/hydradb:0.4.0` image. On boot, `deploy/start.sh` starts HydraDB on a fresh store, loads the graph and the learned calls, and serves the UI on port 7860.
+`deploy/` holds a Dockerfile built on the official `ghcr.io/hydra-db/hydradb:0.4.0` image. On boot, `deploy/start.sh` starts HydraDB on a fresh store, loads the graph and the learned calls, and serves the UI on the port Railway gives it (`$PORT`). No start command or API key is needed.
 
 ```bash
-git clone https://huggingface.co/spaces/<user>/codegraph codegraph-space
-bash codegraph/deploy/make_space.sh codegraph-space      # run from the folder above codegraph/
-cd codegraph-space && git add -A && git commit -m deploy && git push
+# from the folder above codegraph/
+git init codegraph-deploy
+bash codegraph/deploy/make_space.sh codegraph-deploy     # copies code, graph, results, rich source, Frontend
+cd codegraph-deploy && git add -A && git commit -m deploy
+git remote add origin https://github.com/<you>/codegraph-deploy.git && git push -u origin main
 ```
+
+Then in Railway: **New Project → Deploy from GitHub repo → codegraph-deploy**, and once the logs show `serving on 0.0.0.0:…`, open the service → **Settings → Networking → Generate Domain**.
 
 ### 6. Reproduce the results
 
 ```bash
 python codegraph.py bench ../rich_repo     # recall, precision, F1, tokens (vector needs GEMINI_API_KEY in .env)
-python agent_bench.py --runs 2             # Claude Code (Haiku) with vs without CodeGraph, on requests
+python agent_bench.py --runs 2                               # Claude Code (Haiku), requests
+CODEGRAPH_REPO=../rich_repo python agent_bench.py --runs 2   # Claude Code (Haiku), rich
 ```
 
 For `requests`, whose own tests need internet, the ground truth is 13 hand-written scenarios (`trace_calls.py`) instead of its test suite.
@@ -221,7 +226,7 @@ For `requests`, whose own tests need internet, the ground truth is 13 hand-writt
 | `ui_server.py` | Live web UI and JSON API (`/api/repo`, `/api/walk`, `/api/find`, `/api/agent_runs`) |
 | `export_ui.py` | Export the graph walks for the offline page (`Frontend/static/data.js`) |
 | `Frontend/` | The web UI: `index.html` (live), `static/` (offline), `design/` (original mockups) |
-| `deploy/` | Dockerfile, boot script and `make_space.sh` for the hosted demo |
+| `deploy/` | Dockerfile, boot script and `make_space.sh` for the hosted demo (Railway) |
 | `bench.py` | Recall, precision, F1 and tokens: CodeGraph vs vector vs BM25 vs whole files |
 | `agent_bench.py` | End-to-end benchmark with Claude Code, with and without CodeGraph |
 | `trace_calls.py` | Hand-written `requests` scenarios (the evaluation fixture for `requests`) |
