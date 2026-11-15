@@ -29,6 +29,25 @@ QUESTIONS_BY_REPO = {"requests": {
         ("requests/models.py::PreparedRequest.prepare_body", ["prepare_body"]),
         ("requests/models.py::PreparedRequest.prepare_content_length", ["prepare_content_length"]),
     ],
+}, "rich": {
+    # called by name: grep can find these
+    "Text.truncate": [
+        ("rich/containers.py::Lines.justify", ["Lines.justify"]),
+        ("rich/text.py::Text.wrap", ["Text.wrap"]),
+        ("rich/panel.py::Panel.__rich_console__", ["Panel.__rich_console__"]),
+    ],
+    # never called by name: `style + other` runs Style.__add__
+    "Style.__add__": [
+        ("rich/style.py::Style.combine", ["Style.combine"]),
+        ("rich/style.py::Style.chain", ["Style.chain"]),
+        ("rich/table.py::Table.get_row_style", ["get_row_style"]),
+    ],
+    # never called by name: `len(text)` runs Text.__len__
+    "Text.__len__": [
+        ("rich/text.py::Text.append", ["Text.append"]),
+        ("rich/text.py::Text.join", ["Text.join"]),
+        ("rich/text.py::Text.stylize", ["Text.stylize"]),
+    ],
 }}
 QUESTIONS = QUESTIONS_BY_REPO.get(NAME, {})
 
@@ -76,10 +95,16 @@ def cited_lines(answer):
 
 def grade(answer, checks):
     cites = cited_lines(answer)
+    
     found = []
-    for key, names in checks:
+
+    methods = [key.split("::")[-1].split(".")[-1] for key, _ in checks]
+    for (key, names), method in zip(checks, methods):
         file, start, end = SPANS[key]
-        by_name = any(name in answer for name in names)
+        if methods.count(method) == 1:          # "append()" counts for Text.append, unless
+            names = [*names, f"{method}()"]     # two expected callers share that name
+        # whole name only: "Text.append" must not match "Text.append_text"
+        by_name = any(re.search(re.escape(name) + r"(?!\w)", answer) for name in names)
         by_line = any(f == file and start <= n <= end for f, n in cites)
         found.append(by_name or by_line)
     return found
