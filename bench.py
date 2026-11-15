@@ -124,7 +124,11 @@ if os.environ.get("GEMINI_API_KEY"):
 else:
     print("GEMINI_API_KEY not set -> skipping the vector baseline\n", file=sys.stderr)
 
-totals = {name: {"recall": 0.0, "tokens": 0} for name in ["graph", *retrievers]}
+totals = {name: {"recall": 0.0, "tokens": 0, "precision": 0.0, "judged": 0}
+          for name in ["graph", *retrievers]}
+# Precision can only be judged on functions the tests actually ran: a returned function
+# that never ran might be a real but untested caller, so it is left out (not counted wrong).
+executed = {k for e in trace for k in e}
 for q in questions:
     got = graph_retrieve(q)
     budget = sum(tokens(k) for k in got)
@@ -134,14 +138,24 @@ for q in questions:
     for name, got in results.items():
         totals[name]["recall"] += len(set(got) & q["truth"]) / len(q["truth"])
         totals[name]["tokens"] += sum(tokens(k) for k in got)
+        judged = set(got) & executed
+        if judged:
+            totals[name]["precision"] += len(judged & q["truth"]) / len(judged)
+            totals[name]["judged"] += 1
 
 n = len(questions)
 print(f"repo: {NAME}   truth: {TRUTH}")
 print(f"{n} questions ({sum(q['kind'] == 'impact' for q in questions)} impact, "
       f"{sum(q['kind'] == 'depends' for q in questions)} depends), depth {DEPTH}\n")
-print(f"{'method':<8} {'recall':>7} {'avg tokens':>11}")
+
+print(f"{'method':<8} {'recall':>7} {'avg tokens':>11} {'precision':>10} {'F1':>5}")
 for name, t in totals.items():
-    print(f"{name:<8} {t['recall'] / n:>7.0%} {t['tokens'] // n:>11}")
+    r = t["recall"] / n
+    p = t["precision"] / t["judged"] if t["judged"] else 0.0
+    f1 = 2 * p * r / (p + r) if p + r else 0.0
+    print(f"{name:<8} {r:>7.0%} {t['tokens'] // n:>11} {p:>10.0%} {f1:>5.2f}")
+print("precision = share of returned functions that are real callers/callees, judged only on\n"
+      "functions the tests ran (a lower bound: untested real calls count as unknown, not right)")
 
 
 # ---------- Experiment 2: tokens needed to find what the graph found ----------
