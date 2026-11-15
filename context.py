@@ -18,15 +18,15 @@ def find(name):
                     name=name)
     return rows
 
+
 def walk(node_id, direction, depth=2, limit=500):
-    """Walk CALLS edges inside HydraDB (algo.SSpaths) -> {key: hops away}."""
+    """Walk CALLS edges inside HydraDB (algo.SSpaths) -> {key: {hops, line, code}}."""
     q = ("CALL algo.SSpaths({sourceNode: $id, relTypes: ['CALLS'], "
          f"relDirection: '{direction}', maxLen: {int(depth)}, pathCount: {int(limit)}}}) "
          "YIELD path RETURN path")
     found = {}
     with driver.session(database="default") as s:
         for r in s.run(q, id=node_id):
-
             nodes = r["path"].nodes
             n, hops = nodes[-1], len(nodes) - 1
             if hops and (n["key"] not in found or hops < found[n["key"]]["hops"]):
@@ -50,6 +50,7 @@ def snippet(code, max_lines):
         lines = lines[:max_lines] + [f"    # ... {len(lines) - max_lines} more lines"]
     return "\n".join(lines)
 
+
 def context(node_id, depth=2, max_lines=40):
     """Target + its callers + its callees, as one compact text block for an LLM."""
     t = run("MATCH (n {id: $id}) RETURN n.key AS key, n.line AS line, n.code AS code",
@@ -60,7 +61,6 @@ def context(node_id, depth=2, max_lines=40):
             parts.append(f"### {role} {n['hops']} hop: {key} (line {n['line']})\n"
                          f"{snippet(n['code'], max_lines)}")
     return "\n\n".join(parts)
-
 
 
 if __name__ == "__main__":
@@ -74,6 +74,7 @@ if __name__ == "__main__":
     # Compare: what an agent would read without the graph (every file involved)
     files = {line.split()[-3].split("::")[0] for line in block.splitlines()
              if line.startswith("### ")}
-    whole = sum(len((Path("../sample_repo/src") / f).read_text()) for f in files)
+    from config import SRC
+    whole = sum(len((SRC / f).read_text()) for f in files)
     print(f"graph context : {len(block):>6} chars  ~{len(block) // 4} tokens")
     print(f"whole files   : {whole:>6} chars  ~{whole // 4} tokens  {sorted(files)}")

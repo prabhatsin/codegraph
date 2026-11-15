@@ -2,7 +2,7 @@ import ast
 import json
 from pathlib import Path
 
-REPO = Path("../sample_repo/src")
+from config import GRAPH, PKG_DIRS, SRC as REPO
 
 nodes = {}       # id -> node properties
 edges = []       # (from_id, relationship, to_id, how)
@@ -81,7 +81,7 @@ def add_function(fn, rel, src, parent_id, class_name=None):
 
 
 # ---------- Pass 1: collect nodes and imports ----------
-for path in sorted(REPO.rglob("*.py")):
+for path in sorted(p for d in PKG_DIRS for p in d.rglob("*.py")):
     rel = str(path.relative_to(REPO))
     src = path.read_text(encoding="utf-8")
     tree = ast.parse(src)
@@ -226,7 +226,7 @@ for file, names in imports.items():
 edges = sorted(set(edges))
 
 # ---------- Save + summary ----------
-Path("graph.json").write_text(json.dumps(
+GRAPH.write_text(json.dumps(
     {"nodes": list(nodes.values()),
      "edges": [{"from": a, "rel": r, "to": b, "how": h} for a, r, b, h in edges]},
     indent=2))
@@ -243,4 +243,3 @@ print("\nCALLS from api.py:")
 for a, r, b, h in edges:
     if r == "CALLS" and a.startswith("requests/api.py"):
         print(f"  {a}  ->  {b}   [{h}]")
-

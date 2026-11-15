@@ -2,9 +2,10 @@
 import json
 import sys
 
+from config import data_file
 from context import run
 
-TRACE = sys.argv[1] if len(sys.argv) > 1 else "trace_train.json"
+TRACE = data_file(sys.argv[1] if len(sys.argv) > 1 else "trace_train.json")
 edges = [tuple(e) for e in json.load(open(TRACE))]
 
 ids = {}
@@ -32,4 +33,3 @@ for caller, callee in edges:
     print(f"  + {caller.split('::')[1]} -> {callee.split('::')[1]}")
 
 print(f"\n{TRACE}: {known} calls already in the graph, {added} learned from runtime")
-

@@ -7,19 +7,17 @@ from pathlib import Path
 
 from rank_bm25 import BM25Okapi
 
+from config import GRAPH, NAME, SRC, data_file
 from context import callees, callers, run
-from dotenv import load_dotenv
-load_dotenv(override=True)
 
 DEPTH = 2
 MAX_LINES = 40  # same per-function cap as context()
 
-g = json.load(open("graph.json"))
+g = json.load(open(GRAPH))
 funcs = {n["id"]: n for n in g["nodes"] if n["kind"] in ("Function", "Class")}
-
-TRUTH = sys.argv[1] if len(sys.argv) > 1 else "trace_edges.json"
+TRUTH = data_file(sys.argv[1] if len(sys.argv) > 1 else "trace_edges.json")
 trace = [tuple(e) for e in json.load(open(TRUTH))]
-
+trace = [(a, b) for a, b in trace if a in funcs and b in funcs]  # skip lambdas etc.
 
 
 def tokens(key):
@@ -76,7 +74,7 @@ def bm25_rank(q):
     return [k for _, k in sorted(zip(scores, keys), reverse=True)]
 
 
-def embed_all(texts, cache_file="embeddings.json"):
+def embed_all(texts, cache_file=data_file("embeddings.json")):
     """Gemini embeddings, 50 per request, cached on disk so we pay once."""
     from google import genai
     cache = Path(cache_file)
@@ -138,6 +136,7 @@ for q in questions:
         totals[name]["tokens"] += sum(tokens(k) for k in got)
 
 n = len(questions)
+print(f"repo: {NAME}   truth: {TRUTH}")
 print(f"{n} questions ({sum(q['kind'] == 'impact' for q in questions)} impact, "
       f"{sum(q['kind'] == 'depends' for q in questions)} depends), depth {DEPTH}\n")
 print(f"{'method':<8} {'recall':>7} {'avg tokens':>11}")
@@ -145,13 +144,10 @@ for name, t in totals.items():
     print(f"{name:<8} {t['recall'] / n:>7.0%} {t['tokens'] // n:>11}")
 
 
-
-
 # ---------- Experiment 2: tokens needed to find what the graph found ----------
 # Flip the question: instead of a fixed budget, let each method keep reading
 # until it has found as much of the truth as the graph did. How many tokens
 # does that take?
-SRC = Path("../sample_repo/src")
 file_tokens = {f: len((SRC / f).read_text()) // 4
                for f in {funcs[k]["file"] for k in funcs}}
 corpus = sum(tokens(k) for k in keys)

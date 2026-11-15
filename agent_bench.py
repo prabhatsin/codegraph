@@ -4,14 +4,16 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
-REPO = Path("../sample_repo").resolve()   # the agent works inside this repo
-OUT = Path("results")
+from config import GRAPH, NAME, REPO_ROOT as REPO   # the agent works inside this repo
+
+OUT = Path("results") / NAME
 
 # question -> callers a correct answer must cover. Each caller counts as found if the
 # answer names it (any spelling listed) OR cites a line inside that function's body.
-QUESTIONS = {
+QUESTIONS_BY_REPO = {"requests": {
     "Session.send": [
         ("requests/sessions.py::Session.request", ["Session.request", "request()"]),
         ("requests/sessions.py::SessionRedirectMixin.resolve_redirects", ["resolve_redirects"]),
@@ -27,11 +29,12 @@ QUESTIONS = {
         ("requests/models.py::PreparedRequest.prepare_body", ["prepare_body"]),
         ("requests/models.py::PreparedRequest.prepare_content_length", ["prepare_content_length"]),
     ],
-}
+}}
+QUESTIONS = QUESTIONS_BY_REPO.get(NAME, {})
 
 # line span of every function, so "line 268 in sessions.py" can count as resolve_redirects
 SPANS = {}
-for n in json.load(open("graph.json"))["nodes"]:
+for n in json.load(open(GRAPH))["nodes"]:
     if n["kind"] == "Function":
         SPANS[n["id"]] = (n["file"].split("/")[-1], n["line"],
                           n["line"] + len(n["code"].splitlines()) - 1)
@@ -101,7 +104,9 @@ def main():
     ap.add_argument("--runs", type=int, default=1, help="repeat each pair to average out noise")
     ap.add_argument("--regrade", action="store_true", help="re-score saved answers, no new runs")
     args = ap.parse_args()
-    OUT.mkdir(exist_ok=True)
+    if not QUESTIONS:
+        sys.exit(f"No agent questions defined for {NAME} yet (add them to QUESTIONS_BY_REPO)")
+    OUT.mkdir(parents=True, exist_ok=True)
 
     rows = regrade() if args.regrade else []
     for question, checks in ([] if args.regrade else QUESTIONS.items()):

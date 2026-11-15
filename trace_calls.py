@@ -5,7 +5,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-SRC = Path("../sample_repo/src").resolve()
+from config import data_file, SRC  # noqa: E402
+SRC = SRC.resolve()
 sys.path.insert(0, str(SRC))
 import requests  # noqa: E402  (the repo's own copy, not a pip install)
 
@@ -99,8 +100,8 @@ def record(fn):
 
 
 train, test = record(train_scenarios), record(test_scenarios)
-Path("trace_train.json").write_text(json.dumps(sorted(train), indent=1))
-Path("trace_test.json").write_text(json.dumps(sorted(test), indent=1))
-Path("trace_edges.json").write_text(json.dumps(sorted(train | test), indent=1))
+data_file("trace_train.json").write_text(json.dumps(sorted(train), indent=1))
+data_file("trace_test.json").write_text(json.dumps(sorted(test), indent=1))
+data_file("trace_edges.json").write_text(json.dumps(sorted(train | test), indent=1))
 print(f"train edges: {len(train)}   test edges: {len(test)}   all: {len(train | test)}")
 print(f"test edges never seen in train: {len(test - train)}")
