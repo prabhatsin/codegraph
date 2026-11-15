@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeGraph Blast Radius</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* One visual world: an ink-blue code workspace. Teal = what CodeGraph sends,
+     orange = what reading whole files burns, violet = calls learned from tests. */
+  --bg: #0d1320;
+  --panel: #141c2b;
+  --line: #24304a;
+  --text: #e1e7f2;
+  --muted: #8d99b0;
+  --graph: #3fd0c0;
+  --burn: #f08a4b;
+  --learned: #b391ff;
+  --display: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: dark;
+  /* layout: summary row on top, then a two-column workbench (radial graph | tokens),
+     then a reading row (reached list | code). Stacks to one column on phones. */
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); }
+body { padding: 20px clamp(16px, 3vw, 36px) 40px; line-height: 1.45; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+code, .mono { font-family: var(--mono); }
+.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; margin-bottom: 14px; }
+.top p { margin: 0; color: var(--muted); max-width: 70ch; }
+.pill { font-family: var(--mono); font-size: 0.78rem; padding: 2px 8px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 4px 0 18px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.tile b { display: block; font-size: 1.45rem; font-variant-numeric: tabular-nums; color: var(--graph); }
+.tile span { color: var(--muted); font-size: 0.85rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.controls label { font-size: 0.85rem; color: var(--muted); }
+input[type="search"] { font: 500 0.95rem var(--mono); background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: min(420px, 100%); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button, .chip { font: 500 0.85rem var(--body); color: var(--text); background: var(--panel); border: 0; padding: 7px 11px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--graph); color: #062824; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); border-radius: 99px; font-family: var(--mono); font-size: 0.78rem; }
+.chip em { font-style: normal; color: var(--muted); font-family: var(--body); }
+button:focus-visible, input:focus-visible, .row:focus-visible { outline: 2px solid var(--graph); outline-offset: 2px; }
+.bench { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+.card header { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.card header small { color: var(--muted); }
+svg { display: block; width: 100%; height: auto; }
+#radial text { font-family: var(--mono); fill: var(--text); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
+.meter { display: grid; gap: 10px; margin: 6px 0 14px; }
+.bar { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) 5.5rem; gap: 10px; align-items: center; font-size: 0.85rem; }
+.bar .track { height: 16px; background: #0b111c; border-radius: 4px; overflow: hidden; }
+.bar .fill { height: 100%; border-radius: 4px; }
+.bar .num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.ratio { font-size: 2.2rem; font-weight: 700; color: var(--graph); line-height: 1; font-variant-numeric: tabular-nums; }
+.ratio small { font-size: 0.9rem; font-weight: 500; color: var(--muted); }
+.reading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; margin-top: 16px; }
+.list { max-height: 420px; overflow: auto; }
+.row { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 0.85rem; }
+.row:hover, .row.sel { background: #1b2538; }
+.row .k { font-family: var(--mono); overflow-wrap: anywhere; }
+.row .f { color: var(--muted); font-size: 0.75rem; }
+.hop { font-family: var(--mono); color: var(--muted); font-size: 0.75rem; }
+.how { font-family: var(--mono); font-size: 0.7rem; padding: 1px 6px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.how.runtime { border-color: var(--learned); color: var(--learned); }
+pre { margin: 0; background: #0b111c; border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; max-height: 420px; font: 0.8rem/1.5 var(--mono); color: #cfd8e8; }
+.codehead { font-family: var(--mono); font-size: 0.85rem; margin-bottom: 8px; overflow-wrap: anywhere; }
+.codehead span { color: var(--muted); }
+.empty { color: var(--muted); padding: 30px 10px; text-align: center; }
+footer { margin-top: 22px; color: var(--muted); font-size: 0.8rem; max-width: 95ch; }
+#tip { position: fixed; pointer-events: none; background: #0b111c; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font: 0.75rem var(--mono); display: none; z-index: 5; max-width: 60ch; }
+@media (max-width: 860px) { .bench, .reading { grid-template-columns: 1fr; } .bar { grid-template-columns: 7.5rem minmax(0, 1fr) 4.5rem; } }
+@media (prefers-reduced-motion: no-preference) { .fill { transition: width 0.35s ease; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>CodeGraph: what breaks if I change it?</h1>
+  <span class="pill" id="repo">repo</span>
+  <p id="label">One HydraDB traversal returns exactly the functions involved. The map on the right shows what an agent would read instead.</p>
+</div>
+
+<div class="tiles" id="tiles"></div>
+
+<div class="controls">
+  <label for="q">Function or class</label>
+  <input id="q" type="search" list="symbols" placeholder="e.g. Style.__add__" autocomplete="off">
+  <datalist id="symbols"></datalist>
+  <div class="seg" role="group" aria-label="Direction">
+    <button id="dir-in" aria-pressed="true">Who calls it</button>
+    <button id="dir-out" aria-pressed="false">What it calls</button>
+  </div>
+  <div class="seg" role="group" aria-label="Hops">
+    <button id="d1" aria-pressed="false">1 hop</button>
+    <button id="d2" aria-pressed="true">2 hops</button>
+  </div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="bench">
+  <section class="card">
+    <header><h2>Blast radius</h2><small id="radial-note"></small></header>
+    <svg id="radial" viewBox="0 0 820 760" role="img" aria-label="Callers or callees arranged in rings by hop"></svg>
+    <div class="legend">
+      <span><i style="border-color:#5b6a86"></i>call found by reading the code</span>
+      <span><i style="border-color:var(--learned);border-top-style:dashed"></i>call learned from the test suite</span>
+      <span>inner ring: 1 hop · outer ring: 2 hops · colour: file</span>
+    </div>
+  </section>
+  <section class="card">
+    <header><h2>Tokens an agent reads</h2><small id="tok-note"></small></header>
+    <div class="meter" id="meter"></div>
+    <svg id="map" viewBox="0 0 600 470" role="img" aria-label="Token map of every file in the repo"></svg>
+    <div class="legend">
+      <span><i style="border-color:var(--burn);border-top-width:8px"></i>files grep + read would open</span>
+      <span><i style="border-color:var(--graph);border-top-width:8px"></i>functions CodeGraph sends</span>
+      <span>box area = tokens in the file</span>
+    </div>
+  </section>
+</div>
+
+<div class="reading">
+  <section class="card">
+    <header><h2 id="list-title">Reached</h2><small id="list-note"></small></header>
+    <div class="list" id="list"></div>
+  </section>
+  <section class="card">
+    <header><h2>Code</h2><small>exactly what get_context sends for this function</small></header>
+    <div class="codehead" id="codehead"></div>
+    <pre id="code"></pre>
+  </section>
+</div>
+
+<footer id="foot">Data exported from HydraDB with <code>algo.SSpaths</code>, the same traversal the CodeGraph MCP tools run. Tokens are characters ÷ 4, counted the same way for every method. Function code is capped at 40 lines, as in <code>get_context</code>.</footer>
+<div id="tip"></div>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+const D = window.CODEGRAPH;
+const $ = (id) => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const PALETTE = ["#5fb3f9", "#f4d35e", "#7ee081", "#ff8fab", "#c3a6ff", "#ffb86b", "#6ee7d8", "#e5989b"];
+const state = { node: null, dir: "in", depth: 2, sel: null };
+
+// --- data helpers -----------------------------------------------------------
+const N = D.nodes.map((n, i) => ({ i, key: n[0], kind: n[1], file: n[2], line: n[3], end: n[4], tok: n[5], code: n[6],
+  short: n[0].split("::")[1] }));
+const byKey = new Map(N.map((n) => [n.key, n]));
+function walk(i, dir, depth) {
+  const w = D.walks[i] && D.walks[i][dir];
+  if (!w) return { reach: [], edges: [] };
+  const reach = w[0].filter(([, h]) => h <= depth);
+  const keep = new Set(reach.map(([k]) => k).concat([i]));
+  const hop = new Map(reach); hop.set(i, 0);
+  const edges = w[1].filter(([a, b]) => keep.has(a) && keep.has(b) && Math.abs(hop.get(a) - hop.get(b)) === 1);
+  return { reach, edges };
+}
+function edgeHow(edges, k) {
+  const e = edges.find(([a, b]) => a === k || b === k);
+  return e ? D.how[e[2]] : "";
+}
+const fmt = (x) => x >= 1000 ? (x / 1000).toFixed(1) + "k" : String(x);
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const tip = $("tip");
+function showTip(ev, text) { tip.textContent = text; tip.style.display = "block"; tip.style.left = (ev.clientX + 12) + "px"; tip.style.top = (ev.clientY + 12) + "px"; }
+function hideTip() { tip.style.display = "none"; }
+
+// --- header ------------------------------------------------------------------
+$("repo").textContent = D.repo;
+if (D.summary && D.summary.label) $("label").textContent = D.summary.label + ". Pick a function: one HydraDB traversal returns exactly the code involved, and the map shows what an agent would read instead.";
+for (const t of (D.summary && D.summary.tiles) || []) {
+  const d = document.createElement("div"); d.className = "tile";
+  d.innerHTML = `<b></b><span></span>`; d.querySelector("b").textContent = t.big; d.querySelector("span").textContent = t.small;
+  $("tiles").appendChild(d);
+}
+const dl = $("symbols");
+for (const n of N) { const o = document.createElement("option"); o.value = n.short; o.label = n.file; dl.appendChild(o); }
+const PRESETS = [["Style.__add__", "runs on style + style"], ["Text.__len__", "runs on len(text)"],
+  ["Console.print", "the main entry"], ["Text.truncate", "called by name"]];
+for (const [k, why] of PRESETS) {
+  const n = N.find((x) => x.short === k); if (!n) continue;
+  const b = document.createElement("button"); b.className = "chip";
+  b.innerHTML = `${k} <em></em>`; b.querySelector("em").textContent = why;
+  b.onclick = () => select(n); $("chips").appendChild(b);
+}
+
+// --- radial blast radius -------------------------------------------------------
+function drawRadial(target, reach, edges) {
+  const svg = $("radial"); svg.innerHTML = "";
+  const W = 820, H = 760, cx = W / 2, cy = H / 2 + 6, R = [0, 160, 285];
+  const hop = new Map(reach); hop.set(target.i, 0);
+  const files = [...new Set(reach.map(([k]) => N[k].file))].sort();
+  const color = new Map(files.map((f, j) => [f, PALETTE[j % PALETTE.length]]));
+  color.set(target.file, color.get(target.file) || "#ffffff");
+  const pos = new Map([[target.i, [cx, cy, 0]]]);
+  const ring1 = reach.filter(([, h]) => h === 1).map(([k]) => k)
+    .sort((a, b) => N[a].file.localeCompare(N[b].file) || N[a].short.localeCompare(N[b].short));
+  ring1.forEach((k, j) => { const a = -Math.PI / 2 + (2 * Math.PI * j) / Math.max(ring1.length, 1);
+    pos.set(k, [cx + R[1] * Math.cos(a), cy + R[1] * Math.sin(a), a]); });
+  // outer ring: sit next to the inner node they connect to
+  const ring2 = reach.filter(([, h]) => h === 2).map(([k]) => {
+    const links = edges.filter(([a, b]) => (a === k && hop.get(b) === 1) || (b === k && hop.get(a) === 1)).map(([a, b]) => a === k ? b : a);
+    const angs = links.map((x) => pos.get(x)[2]);
+    const mean = angs.length ? Math.atan2(angs.reduce((s, a) => s + Math.sin(a), 0), angs.reduce((s, a) => s + Math.cos(a), 0)) : 0;
+    return [k, mean];
+  }).sort((p, q) => p[1] - q[1]);
+  ring2.forEach(([k], j) => { const a = -Math.PI / 2 + (2 * Math.PI * (j + 0.5)) / Math.max(ring2.length, 1);
+    pos.set(k, [cx + R[2] * Math.cos(a), cy + R[2] * Math.sin(a), a]); });
+
+  for (const r of [R[1], R[2]]) el("circle", { cx, cy, r, fill: "none", stroke: "#2c3a57", "stroke-dasharray": "2 6" }, svg);
+  const gE = el("g", {}, svg);
+  for (const [a, b, h] of edges) {
+    const p = pos.get(a), q = pos.get(b); if (!p || !q) continue;
+    const learned = D.how[h] === "runtime";
+    const mx = (p[0] + q[0]) / 2 + (cx - (p[0] + q[0]) / 2) * 0.18, my = (p[1] + q[1]) / 2 + (cy - (p[1] + q[1]) / 2) * 0.18;
+    el("path", { d: `M${p[0]},${p[1]} Q${mx},${my} ${q[0]},${q[1]}`, fill: "none",
+      stroke: learned ? "var(--learned)" : "#5b6a86", "stroke-width": learned ? 1.6 : 1.2,
+      "stroke-dasharray": learned ? "5 4" : "", opacity: 0.85 }, gE);
+  }
+  const labelAll = ring2.length <= 36;
+  for (const [k, [x, y, a]] of pos) {
+    const n = N[k], h = hop.get(k), isT = k === target.i;
+    const g = el("g", { tabindex: 0, role: "button", "aria-label": n.key, style: "cursor:pointer" }, svg);
+    el("circle", { cx: x, cy: y, r: isT ? 13 : h === 1 ? 7 : 5, fill: isT ? "var(--graph)" : color.get(n.file),
+      stroke: state.sel === k ? "#fff" : "#0d1320", "stroke-width": state.sel === k ? 2.5 : 1.5 }, g);
+    if (isT || h === 1 || labelAll) {
+      const right = Math.cos(a) >= -0.01;
+      const t = el("text", { x: isT ? x : x + (right ? 10 : -10) * (h === 2 ? 0.9 : 1.2), y: isT ? y - 20 : y + 4,
+        "text-anchor": isT ? "middle" : right ? "start" : "end", "font-size": isT ? 15 : h === 1 ? 12 : 10,
+        "font-weight": isT ? 600 : 400, opacity: h === 2 ? 0.8 : 1 }, g);
+      const s = n.short, cap = h === 2 ? 22 : 28; t.textContent = !isT && s.length > cap ? s.slice(0, cap - 1) + "…" : s;
+    }
+    g.addEventListener("mousemove", (ev) => showTip(ev, `${n.key}  (line ${n.line})`));
+    g.addEventListener("mouseleave", hideTip);
+    g.addEventListener("click", () => showCode(k, edges));
+    g.addEventListener("keydown", (ev) => { if (ev.key === "Enter") showCode(k, edges); });
+  }
+  if (!reach.length) {
+    const t = el("text", { x: cx, y: cy + 50, "text-anchor": "middle", "font-size": 14, fill: "var(--muted)" }, svg);
+    t.textContent = state.dir === "in" ? "Nothing in the graph calls this. Try “What it calls”." : "This calls nothing in the repo. Try “Who calls it”.";
+  }
+  const c1 = ring1.length, c2 = ring2.length;
+  $("radial-note").textContent = `${c1} at 1 hop · ${c2} at 2 hops · ${edges.filter(([, , h]) => D.how[h] === "runtime").length} learned edges`;
+}
+
+// --- token meter + treemap ----------------------------------------------------
+function squarify(items, x, y, w, h) {
+  const total = items.reduce((s, d) => s + d.v, 0) || 1, scale = (w * h) / total;
+  const rest = items.map((d) => ({ ...d, a: d.v * scale })).sort((p, q) => q.a - p.a);
+  const out = []; let rect = { x, y, w, h }, row = [];
+  const worst = (r, side) => { const s = r.reduce((t, q) => t + q.a, 0), mx = Math.max(...r.map((q) => q.a)), mn = Math.min(...r.map((q) => q.a));
+    return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn)); };
+  const lay = (r) => { const s = r.reduce((t, q) => t + q.a, 0);
+    if (rect.w >= rect.h) { const rw = s / rect.h; let yy = rect.y; for (const q of r) { const rh = q.a / rw; out.push({ ...q, x: rect.x, y: yy, w: rw, h: rh }); yy += rh; } rect = { x: rect.x + rw, y: rect.y, w: rect.w - rw, h: rect.h }; }
+    else { const rh = s / rect.w; let xx = rect.x; for (const q of r) { const rw = q.a / rh; out.push({ ...q, x: xx, y: rect.y, w: rw, h: rh }); xx += rw; } rect = { x: rect.x, y: rect.y + rh, w: rect.w, h: rect.h - rh }; } };
+  let i = 0;
+  while (i < rest.length) { const side = Math.min(rect.w, rect.h), c = rest[i];
+    if (!row.length || worst([...row, c], side) <= worst(row, side)) { row.push(c); i++; } else { lay(row); row = []; } }
+  if (row.length) lay(row);
+  return out;
+}
+const FILE_RECTS = squarify(Object.entries(D.files).map(([f, [tok, lines]]) => ({ f, v: tok, lines })), 0, 0, 600, 470);
+
+function drawTokens(target, reach) {
+  const sent = [target.i, ...reach.map(([k]) => k)];
+  const graphTok = sent.reduce((s, k) => s + N[k].tok, 0);
+  const open = new Set(sent.map((k) => N[k].file));
+  const fileTok = [...open].reduce((s, f) => s + D.files[f][0], 0);
+  const max = Math.max(graphTok, fileTok, 1);
+  $("meter").innerHTML = "";
+  const ratio = document.createElement("div"); ratio.className = "ratio";
+  ratio.innerHTML = `${(fileTok / Math.max(graphTok, 1)).toFixed(1)}× <small>fewer tokens than opening ${open.size} file${open.size === 1 ? "" : "s"}</small>`;
+  $("meter").appendChild(ratio);
+  for (const [name, v, col] of [["CodeGraph context", graphTok, "var(--graph)"], ["Open the files", fileTok, "var(--burn)"]]) {
+    const b = document.createElement("div"); b.className = "bar";
+    b.innerHTML = `<span></span><div class="track"><div class="fill"></div></div><span class="num"></span>`;
+    b.children[0].textContent = name; b.querySelector(".fill").style.width = (100 * v / max).toFixed(1) + "%";
+    b.querySelector(".fill").style.background = col; b.querySelector(".num").textContent = fmt(v) + " tok";
+    $("meter").appendChild(b);
+  }
+  $("tok-note").textContent = `${sent.length} functions sent`;
+
+  const svg = $("map"); svg.innerHTML = "";
+  for (const r of FILE_RECTS) {
+    const opened = open.has(r.f);
+    const g = el("g", {}, svg);
+    el("rect", { x: r.x + 1, y: r.y + 1, width: Math.max(r.w - 2, 0), height: Math.max(r.h - 2, 0), rx: 2,
+      fill: opened ? "rgba(240,138,75,0.28)" : "#18213300", stroke: opened ? "var(--burn)" : "#26324a", "stroke-width": opened ? 1.5 : 1 }, g);
+    if (r.w > 58 && r.h > 16) {
+      const t = el("text", { x: r.x + 5, y: r.y + 13, "font-size": 10, fill: opened ? "#ffd2b8" : "#7c89a2", "font-family": "IBM Plex Mono, monospace" }, g);
+      const name = r.f.split("/").pop(); t.textContent = name.length * 6 > r.w - 8 ? name.slice(0, Math.max(3, Math.floor((r.w - 8) / 6) - 1)) + "…" : name;
+    }
+    g.addEventListener("mousemove", (ev) => showTip(ev, `${r.f}: ${fmt(D.files[r.f][0])} tokens${opened ? "  (would be opened)" : ""}`));
+    g.addEventListener("mouseleave", hideTip);
+  }
+  const rectOf = new Map(FILE_RECTS.map((r) => [r.f, r]));
+  for (const k of sent) {
+    const n = N[k], r = rectOf.get(n.file); if (!r) continue;
+    const lines = D.files[n.file][1] || 1;
+    const y0 = r.y + 1 + ((n.line - 1) / lines) * (r.h - 2), hh = Math.max(((n.end - n.line + 1) / lines) * (r.h - 2), 2);
+    const s = el("rect", { x: r.x + 3, y: y0, width: Math.max(r.w - 6, 2), height: Math.min(hh, r.y + r.h - y0), fill: "var(--graph)", opacity: 0.9 }, svg);
+    s.addEventListener("mousemove", (ev) => showTip(ev, `${n.short}: ${n.tok} tokens sent`));
+    s.addEventListener("mouseleave", hideTip);
+  }
+}
+
+// --- list + code ---------------------------------------------------------------
+function drawList(target, reach, edges) {
+  $("list-title").textContent = state.dir === "in" ? "Callers (what breaks)" : "Callees (what it depends on)";
+  $("list-note").textContent = `${reach.length} found`;
+  const list = $("list"); list.innerHTML = "";
+  const rows = [[target.i, 0], ...[...reach].sort((p, q) => p[1] - q[1] || N[p[0]].short.localeCompare(N[q[0]].short))];
+  for (const [k, h] of rows) {
+    const n = N[k], how = h ? edgeHow(edges.filter(([a, b]) => a === k || b === k), k) : "target";
+    const r = document.createElement("div"); r.className = "row" + (state.sel === k ? " sel" : ""); r.tabIndex = 0;
+    r.innerHTML = `<span class="hop"></span><span><span class="k"></span><br><span class="f"></span></span><span class="how"></span>`;
+    r.querySelector(".hop").textContent = h ? `${h} hop` : "—";
+    r.querySelector(".k").textContent = n.short;
+    r.querySelector(".f").textContent = `${n.file}:${n.line}`;
+    const hw = r.querySelector(".how"); hw.textContent = how === "runtime" ? "learned" : how; if (how === "runtime") hw.classList.add("runtime");
+    r.onclick = () => showCode(k, edges); r.onkeydown = (ev) => { if (ev.key === "Enter") showCode(k, edges); };
+    list.appendChild(r);
+  }
+}
+function showCode(k, edges) {
+  state.sel = k;
+  const n = N[k];
+  $("codehead").innerHTML = `<b></b> <span></span>`;
+  $("codehead").querySelector("b").textContent = n.key;
+  $("codehead").querySelector("span").textContent = `· line ${n.line} · ${n.tok} tokens`;
+  $("code").textContent = n.code;
+  render(false);
+}
+
+// --- wiring --------------------------------------------------------------------
+function render(resetSel = true) {
+  const t = state.node; if (!t) return;
+  if (resetSel) { state.sel = t.i; $("codehead").innerHTML = ""; }
+  const { reach, edges } = walk(t.i, state.dir, state.depth);
+  drawRadial(t, reach, edges); drawTokens(t, reach); drawList(t, reach, edges);
+  if (resetSel) showCode(t.i, edges);
+  $("dir-in").setAttribute("aria-pressed", state.dir === "in"); $("dir-out").setAttribute("aria-pressed", state.dir === "out");
+  $("d1").setAttribute("aria-pressed", state.depth === 1); $("d2").setAttribute("aria-pressed", state.depth === 2);
+}
+function select(n) { state.node = n; $("q").value = n.short; render(true); }
+function find(text) {
+  const s = text.trim(); if (!s) return null;
+  return byKey.get(s) || N.find((n) => n.short === s) || N.find((n) => n.short.endsWith("." + s)) ||
+    N.find((n) => n.short.toLowerCase().includes(s.toLowerCase()));
+}
+$("q").addEventListener("change", () => { const n = find($("q").value); if (n) select(n); });
+$("q").addEventListener("keydown", (ev) => { if (ev.key === "Enter") { const n = find($("q").value); if (n) select(n); } });
+$("dir-in").onclick = () => { state.dir = "in"; render(true); };
+$("dir-out").onclick = () => { state.dir = "out"; render(true); };
+$("d1").onclick = () => { state.depth = 1; render(true); };
+$("d2").onclick = () => { state.depth = 2; render(true); };
+select(find("Style.__add__") || N[0]);
+</script>
+</body>
+</html>

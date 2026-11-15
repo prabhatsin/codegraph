@@ -1,0 +1,9 @@
+{
+  "label": "rich: 100 files, ground truth from its own 956 tests (held-out half)",
+  "tiles": [
+    {"big": "13.8×", "small": "fewer tokens than opening the files"},
+    {"big": "23.8×", "small": "fewer tokens than vector RAG"},
+    {"big": "81% / 90%", "small": "recall / precision on held-out tests"},
+    {"big": "18/18 vs 10/18", "small": "callers found by Claude Code (Haiku), with vs without CodeGraph"}
+  ]
+}

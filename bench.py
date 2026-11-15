@@ -147,7 +147,6 @@ n = len(questions)
 print(f"repo: {NAME}   truth: {TRUTH}")
 print(f"{n} questions ({sum(q['kind'] == 'impact' for q in questions)} impact, "
       f"{sum(q['kind'] == 'depends' for q in questions)} depends), depth {DEPTH}\n")
-
 print(f"{'method':<8} {'recall':>7} {'avg tokens':>11} {'precision':>10} {'F1':>5}")
 for name, t in totals.items():
     r = t["recall"] / n
@@ -194,6 +193,16 @@ for q in questions:
     spend["whole files"] += sum(file_tokens[f] for f in files)
     for name, rank in retrievers.items():
         spend[name] += tokens_to_match(rank(q), q, goal)
+
+results = {"repo": NAME, "truth": str(TRUTH), "questions": n, "methods": []}
+for name, t in totals.items():
+    r = t["recall"] / n
+    p = t["precision"] / t["judged"] if t["judged"] else 0.0
+    results["methods"].append({"method": name, "recall": round(r, 3), "precision": round(p, 3),
+                               "f1": round(2 * p * r / (p + r), 3) if p + r else 0.0,
+                               "tokens_to_match": spend.get(name, 0) // max(matched, 1)})
+results["methods"].append({"method": "whole files", "tokens_to_match": spend["whole files"] // max(matched, 1)})
+data_file("bench_results.json").write_text(json.dumps(results, indent=2))
 
 print(f"\nTokens needed to find what the graph found ({matched} questions)\n")
 print(f"{'method':<12} {'avg tokens':>11} {'vs graph':>9}")

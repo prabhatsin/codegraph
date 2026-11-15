@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeGraph Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Design from the CodeGraph mockups: ink-black workspace, cyan = what CodeGraph sends,
+     amber = what reading whole files burns, violet = calls learned from the test suite. */
+  --bg: #0A0D14; --side: #0C1019; --card: #0F1420; --card2: #121827; --line: #1F2738; --line2: #2A3349;
+  --text: #E8ECF4; --soft: #C9D1E0; --muted: #9AA4BA;
+  --cyan: #4FD1E8; --cyan-soft: #A6EEF8; --amber: #FFB347; --amber-soft: #FFD9A8; --violet: #B391FF; --bad: #FF7A7A;
+  --display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --body: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+  /* layout: fixed sidebar + one scrolling main column; each view is a stack of cards */
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--body); }
+a { color: var(--cyan); }
+.app { min-height: 100%; display: flex; flex-wrap: wrap; }
+aside.side { flex: 1 1 232px; max-width: 260px; padding: 24px 16px; border-right: 1px solid var(--line); background: var(--side); display: flex; flex-direction: column; gap: 28px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; font: 700 20px var(--display); letter-spacing: -0.02em; }
+nav { display: flex; flex-direction: column; gap: 4px; }
+nav a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; }
+nav a:hover { background: #161C2C; }
+nav a.on { background: #161C2C; color: var(--text); font-weight: 600; }
+nav a.on svg { stroke: var(--cyan); }
+.index { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #111623; font-size: 13px; }
+.index .k { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.live { background: var(--cyan); animation: blink 1.6s ease-in-out infinite; }
+.dot.down { background: var(--bad); }
+.mono { font-family: var(--mono); }
+main { flex: 999 1 560px; min-width: 0; padding: 28px clamp(16px, 3vw, 40px) 56px; display: flex; flex-direction: column; gap: 22px; }
+.crumb { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font: 13px var(--mono); color: var(--muted); }
+.live-pill { padding: 3px 8px; border-radius: 999px; border: 1px solid #1F3A44; color: var(--cyan); font-size: 11px; }
+h1 { margin: 6px 0 0; font: 600 34px var(--display); letter-spacing: -0.02em; text-wrap: balance; }
+h2 { margin: 0; font: 600 20px var(--display); text-wrap: balance; }
+.label { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.card { padding: 22px; border-radius: 18px; border: 1px solid var(--line); background: var(--card); min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 22px; align-items: stretch; }
+.view { display: none; flex-direction: column; gap: 22px; }
+.view.on { display: flex; }
+.banner { display: none; padding: 12px 16px; border-radius: 12px; border: 1px solid #5a2a2a; background: #2a1414; color: #ffd0d0; font-size: 14px; }
+/* bars */
+.bars { display: flex; flex-direction: column; gap: 16px; }
+.bar-h { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 7px; }
+.track { height: 16px; border-radius: 6px; background: #161C2C; overflow: hidden; }
+.fill { height: 100%; width: 0; border-radius: 6px; transition: width 1.1s cubic-bezier(.2,.8,.2,1); }
+.fill.burn { background: repeating-linear-gradient(135deg, var(--amber) 0 6px, #E79A2E 6px 12px); }
+.fill.flow { background: linear-gradient(90deg, rgba(79,209,232,.55), var(--cyan), rgba(79,209,232,.55)); background-size: 200% 100%; animation: flow 2.8s linear infinite; }
+.big { font: 700 96px/0.95 var(--display); letter-spacing: -0.04em; color: var(--cyan); font-variant-numeric: tabular-nums; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+.kpi { display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); }
+.kpi b { font: 500 30px var(--mono); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi small { font-size: 12px; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+th { text-align: left; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 0 10px 10px; border-bottom: 1px solid var(--line); }
+td { padding: 12px 10px; border-bottom: 1px solid #161C2C; font-variant-numeric: tabular-nums; }
+td.n, th.n { text-align: right; font-family: var(--mono); }
+tr.me td { color: var(--cyan-soft); }
+.scroll { overflow-x: auto; }
+/* controls */
+.controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); }
+input[type="search"] { min-height: 44px; min-width: 0; width: min(340px, 100%); padding: 0 14px; border-radius: 10px; border: 1px solid var(--line2); background: #111623; color: var(--text); font: 500 14px var(--mono); }
+.seg { display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #161C2C; }
+.seg button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 7px; background: transparent; color: var(--soft); font: 600 13px var(--body); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--cyan); color: #061318; }
+.chip { min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line2); background: #111623; color: var(--soft); font: 500 13px var(--mono); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+.chip em { font: normal 12px var(--body); color: var(--muted); margin-left: 6px; }
+.chip[aria-pressed="true"] em { color: #3a4458; }
+button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+/* blast radius */
+.stage { flex: 3 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 18px; border: 1px solid var(--line); background: radial-gradient(circle at 50% 48%, #101A26 0%, #0B0F17 62%); }
+#rings { width: 100%; max-width: 780px; margin: 0 auto; display: block; }
+#rings text { font-family: var(--mono); }
+.nd { transition: opacity .45s ease, transform .45s cubic-bezier(.2,.8,.2,1); transform-box: fill-box; transform-origin: center; }
+.nd.hide { opacity: 0; transform: scale(.2); }
+.ed { transition: opacity .5s ease; }
+.ed.hide { opacity: 0; }
+.ed.learned { animation: dash 1.2s linear infinite; }
+.pulse { animation: pulse 2.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; font-size: 13px; color: var(--soft); }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 8px; }
+.side-col { flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.stat4 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stat { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; background: var(--card2); }
+.stat span:first-child { font-size: 12px; color: var(--muted); }
+.stat span:last-child { font: 24px var(--mono); font-variant-numeric: tabular-nums; }
+.sig { display: block; padding: 10px 12px; border-radius: 8px; background: #0B0F17; border: 1px solid #1A2131; font: 12px/1.5 var(--mono); color: var(--soft); white-space: pre-wrap; word-break: break-word; }
+.ms { font: 12px var(--mono); color: var(--cyan-soft); padding: 4px 10px; border-radius: 999px; background: #12252B; white-space: nowrap; }
+.list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
+.li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.li:hover, .li.sel { background: var(--card2); }
+.li .h { font: 600 11px var(--mono); color: var(--muted); }
+.li .nm { font: 500 13px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li .fl { font: 11px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { padding: 2px 8px; border-radius: 999px; font-size: 11px; background: #1C2233; color: var(--soft); white-space: nowrap; }
+.tag.learned { background: #221a38; color: var(--violet); }
+pre.code { margin: 0; padding: 14px; border-radius: 10px; background: #0B0F17; border: 1px solid #1A2131; font: 12.5px/1.55 var(--mono); color: #cfd8e8; overflow: auto; max-height: 460px; }
+.kw { color: #c792ea; } .str { color: #c3e88d; } .com { color: #6b7895; font-style: italic; } .fn { color: var(--cyan-soft); }
+/* token map */
+#map { width: 100%; display: block; }
+.tile { cursor: pointer; transition: opacity .35s ease; }
+.tile:hover rect.box { filter: brightness(1.3); }
+.slice { transition: height .8s cubic-bezier(.2,.8,.2,1), y .8s cubic-bezier(.2,.8,.2,1); }
+/* race */
+.lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.lane { padding: 20px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); display: flex; flex-direction: column; gap: 14px; }
+.lane h3 { margin: 0; font: 600 17px var(--display); display: flex; align-items: center; gap: 10px; }
+.lane .sw { width: 10px; height: 10px; border-radius: 3px; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.note { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted); max-width: 90ch; }
+#tip { position: fixed; pointer-events: none; background: #0B0F17; border: 1px solid var(--line2); border-radius: 6px; padding: 5px 9px; font: 12px var(--mono); display: none; z-index: 9; max-width: 70ch; }
+@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes flow { 0% { background-position: 100% 0 } 100% { background-position: -100% 0 } }
+@keyframes dash { to { stroke-dashoffset: -18 } }
+@keyframes pulse { 0% { stroke-width: 4; stroke-opacity: .9 } 100% { stroke-width: 26; stroke-opacity: 0 } }
+@media (max-width: 760px) { aside.side { max-width: none; border-right: 0; border-bottom: 1px solid var(--line); } .big { font-size: 64px; } h1 { font-size: 28px; } }
+@media (prefers-reduced-motion: reduce) { .dot.live, .fill.flow, .ed.learned, .pulse { animation: none; } .fill, .nd, .ed, .slice, .tile { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="side">
+  <div class="brand"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="4" fill="#4FD1E8"/><circle cx="5" cy="6" r="2.5" stroke="#4FD1E8" stroke-width="1.5"/><circle cx="23" cy="7" r="2.5" stroke="#4FD1E8" stroke-width="1.5"/><circle cx="22" cy="22" r="2.5" stroke="#B391FF" stroke-width="1.5"/><path d="M7 7.5l4.5 4.5M21 8.5l-4.5 3.8M20.5 20.5l-4-4" stroke="#4FD1E8" stroke-width="1.5"/></svg>CodeGraph</div>
+  <nav aria-label="Main">
+    <a href="#overview" data-nav="overview"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Overview</a>
+    <a href="#blast" data-nav="blast"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="9.5" stroke-dasharray="2 3"/></svg>Blast radius</a>
+    <a href="#tokens" data-nav="tokens"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h9M12 8h9"/></svg>Token map</a>
+    <a href="#race" data-nav="race"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Agent race</a>
+  </nav>
+  <div class="index">
+    <div class="k">Index</div>
+    <div style="display:flex;align-items:center;gap:8px"><span class="dot" id="dot"></span><span id="status">Connecting to HydraDB…</span></div>
+    <div class="mono" style="font-size:12px;color:var(--muted);line-height:1.7" id="stats"></div>
+  </div>
+</aside>
+
+<main>
+  <div class="banner" id="banner" role="alert"></div>
+
+  <!-- OVERVIEW -->
+  <section class="view" data-view="overview">
+    <div>
+      <div class="crumb"><span id="repo-name">repo</span><span style="color:#4A5470">/</span><span>overview</span><span class="live-pill">LIVE · HydraDB</span></div>
+      <h1>Traverse structure. Stop burning tokens.</h1>
+    </div>
+    <section class="card row" style="gap:24px;padding:28px">
+      <div style="flex:3 1 420px;min-width:0;display:flex;flex-direction:column;gap:20px">
+        <h2>Tokens needed to find the same callers</h2>
+        <div class="bars" id="ov-bars"></div>
+        <p class="note" id="ov-note"></p>
+      </div>
+      <div style="flex:2 1 280px;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:24px;border-radius:14px;background:#111827;border:1px solid #1F3A44">
+        <span class="label">Fewer tokens than opening the files</span>
+        <span class="big" id="ov-ratio">–</span>
+        <span style="font-size:15px;color:var(--soft)" id="ov-ratio-sub"></span>
+      </div>
+    </section>
+    <div class="kpis" id="kpis"></div>
+    <section class="card" style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h2>Benchmark</h2><span style="font-size:13px;color:var(--muted)" id="bench-meta"></span></div>
+      <div class="scroll"><table id="bench"></table></div>
+      <p class="note">Ground truth: calls recorded while the repo's own tests ran, scored on the held-out half of the test files. Recall and precision for the baselines are measured at the token budget CodeGraph used. Precision only judges functions the tests ran (a lower bound). Tokens are characters ÷ 4 for every method.</p>
+    </section>
+  </section>
+
+  <!-- BLAST RADIUS -->
+  <section class="view" data-view="blast">
+    <div>
+      <div class="crumb"><span class="repo-name2">repo</span><span style="color:#4A5470">/</span><span>blast radius</span><span class="live-pill">LIVE · HydraDB</span></div>
+      <h1 id="blast-title">What breaks if I change this?</h1>
+    </div>
+    <div class="controls">
+      <input type="search" id="q" list="syms" placeholder="Search a function, e.g. Console.print" aria-label="Function or class" autocomplete="off">
+      <datalist id="syms"></datalist>
+      <div class="seg" role="group" aria-label="Direction"><button id="dir-in">Who calls it</button><button id="dir-out">What it calls</button></div>
+      <div class="seg" role="group" aria-label="Hops"><button id="d1">1 hop</button><button id="d2">2 hops</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="presets"></div>
+    </div>
+    <div class="row">
+      <section class="stage" aria-label="Callers in rings by hop">
+        <svg id="rings" viewBox="0 0 800 800" role="img" aria-label="Blast radius rings"></svg>
+        <div class="legend">
+          <span><i style="border-color:#4FD1E8"></i>call found in the code</span>
+          <span><i style="border-color:var(--violet);border-top-style:dashed"></i>call learned from tests</span>
+          <span>colour = file · inner ring = 1 hop</span>
+        </div>
+      </section>
+      <div class="side-col">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="label">Impact</span><span class="ms" id="ms">HydraDB · – ms</span></div>
+          <span class="mono" style="font-size:17px;font-weight:600;word-break:break-all" id="t-key"></span>
+          <code class="sig" id="t-sig"></code>
+          <div class="stat4">
+            <div class="stat"><span>Direct</span><span id="s-direct">–</span></div>
+            <div class="stat"><span>2 hops away</span><span id="s-trans">–</span></div>
+            <div class="stat"><span>Learned edges</span><span id="s-learned" style="color:var(--violet)">–</span></div>
+            <div class="stat"><span>Files to read</span><span id="s-files">–</span></div>
+          </div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <span class="label">Context cost of this answer</span>
+          <div><div class="bar-h"><span style="color:var(--cyan-soft)">CodeGraph context</span><span class="mono" style="color:var(--cyan-soft)" id="c-graph"></span></div><div class="track" style="height:10px"><div class="fill flow" id="f-graph"></div></div></div>
+          <div><div class="bar-h"><span style="color:var(--amber-soft)">Open the files</span><span class="mono" style="color:var(--amber-soft)" id="c-files"></span></div><div class="track" style="height:10px"><div class="fill burn" id="f-files"></div></div></div>
+          <span style="font:700 30px var(--display);color:var(--cyan)" id="c-ratio"></span>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><span class="label" id="aff-title">Affected symbols</span><span style="font-size:12px;color:var(--muted)" id="aff-n"></span></div>
+          <div class="list" id="aff"></div>
+        </div>
+      </div>
+    </div>
+    <section class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><span class="label">Code CodeGraph sends</span><span class="mono" style="font-size:12px;color:var(--muted)" id="code-head"></span></div>
+      <pre class="code" id="code"></pre>
+    </section>
+  </section>
+
+  <!-- TOKEN MAP -->
+  <section class="view" data-view="tokens">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+      <div style="max-width:720px">
+        <div class="crumb"><span class="repo-name2">repo</span><span style="color:#4A5470">/</span><span>token map</span><span class="live-pill">LIVE · HydraDB</span></div>
+        <h1>Token map</h1>
+        <p style="margin:8px 0 0;color:var(--soft);line-height:1.55">Every tile is a file, sized by the tokens it costs to read whole. Switch agents to see what each one pulls into context for the same question.</p>
+      </div>
+      <div class="seg" role="group" aria-label="Agent"><button id="m-grep">Grep agent</button><button id="m-graph">CodeGraph agent</button></div>
+    </div>
+    <div class="controls" style="justify-content:space-between"><span><span class="label">Question</span> <span class="mono" id="tm-q" style="margin-left:10px"></span></span><a href="#blast" style="font-size:13px">change in Blast radius →</a></div>
+    <div class="row">
+      <section class="card" style="flex:3 1 560px;padding:12px;background:var(--side)"><svg id="map" viewBox="0 0 900 640" role="img" aria-label="Treemap of files by tokens"></svg></section>
+      <div class="side-col">
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <span class="label">Tokens pulled into context</span>
+          <span class="mono" style="font-size:44px;font-weight:500;letter-spacing:-0.03em" id="tm-read"></span>
+          <div class="track" style="height:10px"><div class="fill" id="tm-fill"></div></div>
+          <span style="font-size:13px;color:var(--soft)" id="tm-sub"></span>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <span class="label">Selected file</span>
+          <span class="mono" style="font-size:16px;font-weight:600;word-break:break-all" id="sf-path">Click a tile</span>
+          <div class="stat4"><div class="stat"><span>Whole file</span><span id="sf-whole">–</span></div><div class="stat"><span>Read this run</span><span id="sf-read">–</span></div></div>
+          <div id="sf-funcs" style="font:12px/1.7 var(--mono);color:var(--soft)"></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--soft)">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:14px;height:14px;border-radius:4px;background:rgba(255,179,71,.22);border:1px solid var(--amber)"></span>Read whole by the grep agent</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:14px;height:14px;border-radius:4px;background:linear-gradient(to top,rgba(79,209,232,.55) 40%,#0F1A22 40%);border:1px solid var(--cyan)"></span>CodeGraph slice: fill height = share of the file sent</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:14px;height:14px;border-radius:4px;background:var(--card2);border:1px solid var(--line)"></span>Never touched</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENT RACE -->
+  <section class="view" data-view="race">
+    <div>
+      <div class="crumb"><span class="repo-name2">repo</span><span style="color:#4A5470">/</span><span>agent race</span></div>
+      <h1>Claude Code, with and without CodeGraph</h1>
+      <p style="margin:8px 0 0;color:var(--soft);max-width:75ch;line-height:1.55">Real headless runs from <span class="mono">agent_bench.py</span>: same questions, same model, once with the CodeGraph MCP tools and once with grep and file reads only. A caller counts as found if the answer names it or cites a line inside it.</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="chip" id="replay">Replay race</button></div>
+    <div class="lanes" id="lanes"></div>
+    <section class="card" style="display:flex;flex-direction:column;gap:12px">
+      <h2>Every run</h2>
+      <div class="scroll"><table id="runs"></table></div>
+      <p class="note" id="race-note"></p>
+    </section>
+  </section>
+</main>
+</div>
+<div id="tip"></div>
+
+<script>
+"use strict";
+const API_BASE = "";   // same origin: served by ui_server.py
+const $ = (id) => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const PAL = ["#4FD1E8", "#7EE081", "#F4D35E", "#FF8FAB", "#5FB3F9", "#FFB86B", "#6EE7D8", "#E5989B"];
+const S = { repo: null, walk: null, runs: [], symbol: "Style.__add__", dir: "in", depth: 2, sel: null, mode: "graph", file: null };
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const api = {
+  async get(path) {
+    const r = await fetch(API_BASE + path);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  },
+  repo() { return this.get("/api/repo"); },
+  walk(sym, dir, depth) { return this.get(`/api/walk?symbol=${encodeURIComponent(sym)}&dir=${dir}&depth=${depth}`); },
+  agentRuns() { return this.get("/api/agent_runs"); },
+};
+
+const fmt = (x) => x >= 1e6 ? (x / 1e6).toFixed(2) + "M" : x >= 1000 ? (x / 1000).toFixed(1) + "k" : String(Math.round(x));
+const pct = (x) => Math.round(x * 100) + "%";
+const short = (k) => k.split("::")[1];
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; }
+function html(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+const tip = $("tip");
+function showTip(ev, t) { tip.textContent = t; tip.style.display = "block"; tip.style.left = ev.clientX + 12 + "px"; tip.style.top = ev.clientY + 12 + "px"; }
+function hideTip() { tip.style.display = "none"; }
+function banner(msg) { const b = $("banner"); b.textContent = msg; b.style.display = msg ? "block" : "none"; }
+function countUp(node, to, render) {
+  if (reduced) { node.textContent = render(to); return; }
+  const t0 = performance.now(), dur = 900;
+  const step = (t) => { const k = Math.min((t - t0) / dur, 1), e = 1 - Math.pow(1 - k, 3); node.textContent = render(to * e); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function grow(fill, pctWidth) { fill.style.width = "0%"; requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = pctWidth + "%"; })); }
+function highlight(code) {
+  const esc = code.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  return esc.replace(/(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|\b(def|class|return|if|elif|else|for|while|in|not|and|or|is|None|True|False|import|from|as|with|yield|raise|try|except|finally|lambda|self|pass|break|continue)\b|\b([A-Za-z_]\w*)(?=\()/g,
+    (m, c, s, k, f) => c ? `<span class="com">${c}</span>` : s ? `<span class="str">${s}</span>` : k ? `<span class="kw">${k}</span>` : `<span class="fn">${f}</span>`);
+}
+
+// ---------------- routing ----------------
+function route() {
+  const v = (location.hash || "#overview").slice(1);
+  const name = ["overview", "blast", "tokens", "race"].includes(v) ? v : "overview";
+  document.querySelectorAll(".view").forEach((s) => s.classList.toggle("on", s.dataset.view === name));
+  document.querySelectorAll("nav a").forEach((a) => { a.classList.toggle("on", a.dataset.nav === name); if (a.dataset.nav === name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  if (name === "overview") drawOverview();
+  if (name === "race") drawRace();
+  if (name === "tokens") drawMap();
+  if (name === "blast" && S.walk) drawBlast(true);
+}
+addEventListener("hashchange", route);
+
+// ---------------- overview ----------------
+function drawOverview() {
+  const R = S.repo; if (!R) return;
+  const B = R.bench;
+  const bars = $("ov-bars"); bars.innerHTML = "";
+  const methods = B ? B.methods : [];
+  const graph = methods.find((m) => m.method === "graph");
+  const order = [["whole files", "Open the files (grep + read)", "burn"], ["vector", "Vector RAG (Gemini embeddings)", "burn"], ["bm25", "BM25 keyword search", "burn"], ["graph", "CodeGraph traversal", "flow"]];
+  const max = Math.max(...methods.map((m) => m.tokens_to_match || 0), 1);
+  for (const [id, label, cls] of order) {
+    const m = methods.find((x) => x.method === id); if (!m) continue;
+    const d = html("div");
+    const h = html("div", "bar-h"); const a = html("span", null, label), b = html("span", "mono", fmt(m.tokens_to_match) + " tok");
+    a.style.color = b.style.color = cls === "flow" ? "var(--cyan-soft)" : "var(--amber-soft)";
+    h.append(a, b); const t = html("div", "track"), f = html("div", "fill " + cls); t.append(f); d.append(h, t); bars.append(d);
+    grow(f, (100 * m.tokens_to_match / max).toFixed(1));
+  }
+  const files = methods.find((m) => m.method === "whole files");
+  if (graph && files) {
+    countUp($("ov-ratio"), files.tokens_to_match / graph.tokens_to_match, (v) => v.toFixed(1) + "×");
+    const vec = methods.find((m) => m.method === "vector");
+    $("ov-ratio-sub").textContent = vec ? `and ${(vec.tokens_to_match / graph.tokens_to_match).toFixed(1)}× fewer than vector RAG, on ${B.questions} held-out questions.` : `on ${B.questions} held-out questions.`;
+    $("ov-note").textContent = "Each method keeps reading its best-ranked code until it has found as many real callers as CodeGraph did.";
+  } else {
+    $("ov-ratio").textContent = "–"; $("ov-note").textContent = "No benchmark yet: run python codegraph.py bench <repo> to fill this in.";
+  }
+  const st = R.stats, k = $("kpis"); k.innerHTML = "";
+  const best = (f) => Math.max(...methods.filter((m) => m.method !== "graph" && m[f] != null).map((m) => m[f]), 0);
+  const runs = S.runs, cg = runs.filter((r) => r.mode === "codegraph"), gr = runs.filter((r) => r.mode === "grep");
+  const found = (rs) => rs.reduce((s, r) => s + +r.found.split("/")[0], 0) + "/" + rs.reduce((s, r) => s + +r.found.split("/")[1], 0);
+  const cards = [];
+  if (graph) cards.push(["Recall", graph.recall, (v) => pct(v), `best baseline ${pct(best("recall"))}`],
+    ["Precision", graph.precision, (v) => pct(v), `best baseline ${pct(best("precision"))} · a lower bound`],
+    ["F1", graph.f1, (v) => v.toFixed(2), `best baseline ${best("f1").toFixed(2)}`]);
+  cards.push(["Learned calls", st.learned, (v) => fmt(v), "added to HydraDB from the test suite"],
+    ["Graph", st.functions + st.classes, (v) => fmt(v), `functions + classes · ${fmt(st.calls)} calls`]);
+  if (runs.length) cards.push(["Claude Code callers", null, null, `with CodeGraph ${found(cg)} · grep only ${found(gr)}`]);
+  for (const [label, val, render, sub] of cards) {
+    const c = html("div", "kpi"); c.append(html("span", "label", label));
+    const b = html("b"); c.append(b, html("small", null, sub)); k.append(c);
+    if (val == null) { b.textContent = found(cg); b.style.color = "var(--cyan)"; } else countUp(b, val, render);
+  }
+  const tb = $("bench"); tb.innerHTML = "";
+  if (B) {
+    $("bench-meta").textContent = `${R.repo} · ${B.questions} questions`;
+    const names = { graph: "CodeGraph (HydraDB)", vector: "Vector RAG (Gemini)", bm25: "BM25", "whole files": "Open the files" };
+    tb.innerHTML = `<thead><tr><th>Method</th><th class="n">Recall</th><th class="n">Precision</th><th class="n">F1</th><th class="n">Tokens to match</th><th class="n">vs CodeGraph</th></tr></thead>`;
+    const body = html("tbody");
+    for (const m of methods) {
+      const tr = html("tr", m.method === "graph" ? "me" : "");
+      const cells = [names[m.method] || m.method, m.recall != null ? pct(m.recall) : "–", m.precision != null ? pct(m.precision) : "–", m.f1 != null ? m.f1.toFixed(2) : "–", fmt(m.tokens_to_match), graph ? (m.tokens_to_match / graph.tokens_to_match).toFixed(1) + "×" : "–"];
+      cells.forEach((v, i) => { const td = html("td", i ? "n" : "", v); tr.append(td); }); body.append(tr);
+    }
+    tb.append(body);
+  }
+}
+
+// ---------------- blast radius ----------------
+async function query() {
+  try {
+    $("ms").textContent = "HydraDB · …";
+    S.walk = await api.walk(S.symbol, S.dir, S.depth);
+    S.sel = S.walk.target.key; banner("");
+    $("status").textContent = "Live"; $("dot").className = "dot live";
+    drawBlast(true); if (location.hash === "#tokens") drawMap();
+  } catch (e) { banner(`CodeGraph server error: ${e.message}`); }
+}
+function drawBlast(animate) {
+  const W = S.walk; if (!W) return;
+  const t = W.target, reach = W.reached, edges = W.edges;
+  $("q").value = short(t.key);
+  for (const [id, on] of [["dir-in", S.dir === "in"], ["dir-out", S.dir === "out"], ["d1", S.depth === 1], ["d2", S.depth === 2]]) $(id).setAttribute("aria-pressed", on);
+  document.querySelectorAll("#presets .chip").forEach((c) => c.setAttribute("aria-pressed", c.dataset.sym === short(t.key)));
+  $("blast-title").textContent = S.dir === "in" ? "What breaks if I change this?" : "What does this depend on?";
+  $("ms").textContent = `HydraDB · ${W.query_ms} ms`;
+  $("t-key").textContent = short(t.key);
+  $("t-sig").textContent = `${t.file}:${t.line}\n${(t.code.split("\n").find((l) => l.trim().startsWith("def") || l.trim().startsWith("class")) || t.code.split("\n")[0]).trim()}`;
+  const learned = edges.filter((e) => e.how === "runtime").length;
+  $("s-direct").textContent = reach.filter((r) => r.hops === 1).length;
+  $("s-trans").textContent = reach.filter((r) => r.hops === 2).length;
+  $("s-learned").textContent = learned;
+  $("s-files").textContent = W.tokens.files_opened.length;
+  const T = W.tokens, max = Math.max(T.graph, T.files, 1);
+  $("c-graph").textContent = fmt(T.graph) + " tok"; $("c-files").textContent = fmt(T.files) + " tok";
+  grow($("f-graph"), (100 * T.graph / max).toFixed(1)); grow($("f-files"), (100 * T.files / max).toFixed(1));
+  countUp($("c-ratio"), T.ratio, (v) => v.toFixed(1) + "× fewer tokens");
+  drawRings(t, reach, edges, animate);
+  drawList(t, reach, edges);
+  showCode(S.sel);
+}
+function drawRings(t, reach, edges, animate) {
+  const svg = $("rings"); svg.innerHTML = "";
+  const cx = 400, cy = 400, R = [0, 150, 285];
+  const files = [...new Set(reach.map((r) => r.file))].sort();
+  const col = new Map(files.map((f, i) => [f, PAL[i % PAL.length]]));
+  const hop = new Map(reach.map((r) => [r.key, r.hops])); hop.set(t.key, 0);
+  const pos = new Map([[t.key, [cx, cy, 0]]]);
+  const r1 = reach.filter((r) => r.hops === 1).sort((a, b) => a.file.localeCompare(b.file) || a.key.localeCompare(b.key));
+  r1.forEach((r, j) => { const a = -Math.PI / 2 + 2 * Math.PI * j / Math.max(r1.length, 1); pos.set(r.key, [cx + R[1] * Math.cos(a), cy + R[1] * Math.sin(a), a]); });
+  const r2 = reach.filter((r) => r.hops === 2).map((r) => {
+    const ang = edges.filter((e) => (e.from === r.key && hop.get(e.to) === 1) || (e.to === r.key && hop.get(e.from) === 1)).map((e) => pos.get(e.from === r.key ? e.to : e.from)[2]);
+    return [r, ang.length ? Math.atan2(ang.reduce((s, a) => s + Math.sin(a), 0), ang.reduce((s, a) => s + Math.cos(a), 0)) : 0];
+  }).sort((a, b) => a[1] - b[1]);
+  r2.forEach(([r], j) => { const a = -Math.PI / 2 + 2 * Math.PI * (j + 0.5) / Math.max(r2.length, 1); pos.set(r.key, [cx + R[2] * Math.cos(a), cy + R[2] * Math.sin(a), a]); });
+  const defs = el("defs", {}, svg);
+  const g1 = el("radialGradient", { id: "rg" }, defs); el("stop", { offset: "0%", "stop-color": "#4FD1E8", "stop-opacity": "0.10" }, g1); el("stop", { offset: "100%", "stop-color": "#4FD1E8", "stop-opacity": "0" }, g1);
+  for (let h = 2; h >= 1; h--) {
+    if (h > S.depth) continue;
+    el("circle", { cx, cy, r: R[h], fill: h === 1 ? "url(#rg)" : "none", stroke: `rgba(79,209,232,${h === 1 ? 0.35 : 0.22})`, "stroke-dasharray": h === 2 ? "3 6" : "" }, svg);
+    const lb = el("text", { x: cx, y: cy - R[h] + 4, "text-anchor": "middle", "font-size": 11, fill: "#A6EEF8" }, svg); lb.textContent = `hop ${h}`;
+  }
+  const gE = el("g", {}, svg), gN = el("g", {}, svg);
+  const items = [];
+  for (const e of edges) {
+    const p = pos.get(e.from), q = pos.get(e.to); if (!p || !q) continue;
+    const L = e.how === "runtime";
+    const mx = (p[0] + q[0]) / 2 + (cx - (p[0] + q[0]) / 2) * 0.15, my = (p[1] + q[1]) / 2 + (cy - (p[1] + q[1]) / 2) * 0.15;
+    const path = el("path", { d: `M${p[0]},${p[1]} Q${mx},${my} ${q[0]},${q[1]}`, fill: "none", class: "ed" + (L ? " learned" : "") + (animate ? " hide" : ""),
+      stroke: L ? "#B391FF" : "rgba(79,209,232,0.55)", "stroke-width": L ? 1.7 : 1.2, "stroke-dasharray": L ? "6 3" : "" }, gE);
+    items.push([path, Math.max(hop.get(e.from), hop.get(e.to))]);
+  }
+  const labelAll = r2.length <= 34;
+  for (const [key, [x, y, a]] of pos) {
+    const h = hop.get(key), isT = key === t.key, info = isT ? t : reach.find((r) => r.key === key);
+    const g = el("g", { class: "nd" + (animate && !isT ? " hide" : ""), tabindex: 0, role: "button", "aria-label": key, style: "cursor:pointer" }, gN);
+    if (isT) {
+      el("circle", { cx: x, cy: y, r: 15, fill: "none", stroke: "#4FD1E8", class: "pulse" }, g);
+      el("circle", { cx: x, cy: y, r: 15, fill: "#E8ECF4", stroke: "#4FD1E8", "stroke-width": 4 }, g);
+      const w = Math.max(short(key).length * 8 + 20, 60);
+      el("rect", { x: x - w / 2, y: y + 24, width: w, height: 24, rx: 7, fill: "#E8ECF4" }, g);
+      const tt = el("text", { x, y: y + 40, "text-anchor": "middle", "font-size": 13, "font-weight": 600, fill: "#0A0D14" }, g); tt.textContent = short(key);
+    } else {
+      const sz = h === 1 ? 7 : 5, sel = S.sel === key;
+      el("circle", { cx: x, cy: y, r: sz + (sel ? 3 : 0), fill: col.get(info.file), stroke: sel ? "#E8ECF4" : "#0A0D14", "stroke-width": sel ? 2.5 : 1.5 }, g);
+      if (h === 1 || labelAll) {
+        const right = Math.cos(a) >= -0.01, cap = h === 1 ? 28 : 22, s = short(key);
+        const tx = el("text", { x: x + (right ? 11 : -11), y: y + 4, "text-anchor": right ? "start" : "end", "font-size": h === 1 ? 11.5 : 10, fill: h === 1 ? "#C9D1E0" : "#9AA4BA" }, g);
+        tx.textContent = s.length > cap ? s.slice(0, cap - 1) + "…" : s;
+      }
+    }
+    g.addEventListener("mousemove", (ev) => showTip(ev, `${key}  ·  line ${info.line}`));
+    g.addEventListener("mouseleave", hideTip);
+    const pick = () => { S.sel = key; drawRingsSel(); showCode(key); drawListSel(); };
+    g.addEventListener("click", pick); g.addEventListener("keydown", (ev) => { if (ev.key === "Enter") pick(); });
+    items.push([g, h]);
+  }
+  if (!reach.length) { const m = el("text", { x: cx, y: cy + 90, "text-anchor": "middle", "font-size": 14, fill: "#9AA4BA" }, svg); m.textContent = S.dir === "in" ? "Nothing in the graph calls this. Try “What it calls”." : "This calls nothing in the repo. Try “Who calls it”."; }
+  if (animate) items.forEach(([n, h]) => { n.style.transitionDelay = reduced ? "0ms" : (h * 260 + Math.random() * 120) + "ms"; requestAnimationFrame(() => requestAnimationFrame(() => n.classList.remove("hide"))); });
+}
+function drawRingsSel() { drawRings(S.walk.target, S.walk.reached, S.walk.edges, false); }
+function drawList(t, reach, edges) {
+  $("aff-title").textContent = S.dir === "in" ? "Callers (what breaks)" : "Callees (what it depends on)";
+  $("aff-n").textContent = `${reach.length} within ${S.depth} hop${S.depth > 1 ? "s" : ""}`;
+  drawListSel();
+}
+function drawListSel() {
+  const W = S.walk, box = $("aff"); box.innerHTML = "";
+  for (const r of [W.target, ...W.reached]) {
+    const e = W.edges.find((x) => x.from === r.key || x.to === r.key);
+    const how = r.hops === 0 ? "target" : e ? e.how : "";
+    const b = html("button", "li" + (S.sel === r.key ? " sel" : ""));
+    b.append(html("span", "h", r.hops ? "H" + r.hops : "—"));
+    const mid = html("span"); mid.style.cssText = "display:flex;flex-direction:column;min-width:0";
+    mid.append(html("span", "nm", short(r.key)), html("span", "fl", `${r.file}:${r.line}`));
+    b.append(mid, html("span", "tag" + (how === "runtime" ? " learned" : ""), how === "runtime" ? "learned" : how));
+    b.onclick = () => { S.sel = r.key; drawRingsSel(); showCode(r.key); drawListSel(); };
+    box.append(b);
+  }
+}
+function showCode(key) {
+  const W = S.walk, n = [W.target, ...W.reached].find((x) => x.key === key) || W.target;
+  $("code-head").textContent = `${n.key} · line ${n.line} · ${n.tokens} tokens`;
+  $("code").innerHTML = highlight(n.code);
+}
+
+// ---------------- token map ----------------
+function squarify(items, x, y, w, h) {
+  const total = items.reduce((s, d) => s + d.v, 0) || 1, sc = w * h / total;
+  const rest = items.map((d) => ({ ...d, a: d.v * sc })).sort((p, q) => q.a - p.a);
+  const out = []; let rc = { x, y, w, h }, row = [];
+  const worst = (r, s) => { const t = r.reduce((u, q) => u + q.a, 0), mx = Math.max(...r.map((q) => q.a)), mn = Math.min(...r.map((q) => q.a)); return Math.max(s * s * mx / (t * t), t * t / (s * s * mn)); };
+  const lay = (r) => { const t = r.reduce((u, q) => u + q.a, 0);
+    if (rc.w >= rc.h) { const rw = t / rc.h; let yy = rc.y; for (const q of r) { const rh = q.a / rw; out.push({ ...q, x: rc.x, y: yy, w: rw, h: rh }); yy += rh; } rc = { x: rc.x + rw, y: rc.y, w: rc.w - rw, h: rc.h }; }
+    else { const rh = t / rc.w; let xx = rc.x; for (const q of r) { const rw = q.a / rh; out.push({ ...q, x: xx, y: rc.y, w: rw, h: rh }); xx += rw; } rc = { x: rc.x, y: rc.y + rh, w: rc.w, h: rc.h - rh }; } };
+  let i = 0;
+  while (i < rest.length) { const s = Math.min(rc.w, rc.h), c = rest[i]; if (!row.length || worst([...row, c], s) <= worst(row, s)) { row.push(c); i++; } else { lay(row); row = []; } }
+  if (row.length) lay(row);
+  return out;
+}
+let RECTS = null;
+function drawMap() {
+  const R = S.repo, W = S.walk; if (!R || !W) return;
+  if (!RECTS) RECTS = squarify(Object.entries(R.files).map(([f, [tok, lines]]) => ({ f, v: tok, lines })), 0, 0, 900, 640);
+  for (const [id, on] of [["m-grep", S.mode === "grep"], ["m-graph", S.mode === "graph"]]) $(id).setAttribute("aria-pressed", on);
+  $("tm-q").textContent = `${S.dir === "in" ? "Who calls" : "What does"} ${short(W.target.key)}${S.dir === "in" ? "?" : " call?"} · ${S.depth} hop${S.depth > 1 ? "s" : ""}`;
+  const sentBy = new Map();
+  for (const n of [W.target, ...W.reached]) { if (!sentBy.has(n.file)) sentBy.set(n.file, []); sentBy.get(n.file).push(n); }
+  const grep = S.mode === "grep";
+  const total = Object.values(R.files).reduce((s, [t]) => s + t, 0);
+  const read = grep ? W.tokens.files : W.tokens.graph;
+  countUp($("tm-read"), read, (v) => fmt(v) + " tok");
+  $("tm-read").style.color = grep ? "var(--amber)" : "var(--cyan)";
+  $("tm-fill").style.background = grep ? "var(--amber)" : "var(--cyan)"; grow($("tm-fill"), (100 * read / total).toFixed(1));
+  $("tm-sub").textContent = `${(100 * read / total).toFixed(1)}% of the repo · ${W.tokens.files_opened.length} files ${grep ? "opened whole" : "touched, only the functions sent"}`;
+  const svg = $("map"); svg.innerHTML = "";
+  for (const r of RECTS) {
+    const used = sentBy.has(r.f), g = el("g", { class: "tile", tabindex: 0, role: "button", "aria-label": `${r.f}, ${fmt(R.files[r.f][0])} tokens` }, svg);
+    const fill = grep && used ? "rgba(255,179,71,0.20)" : used ? "#0F1A22" : "#121827";
+    const stroke = grep && used ? "rgba(255,179,71,0.75)" : used ? "#4FD1E8" : "#1F2738";
+    el("rect", { class: "box", x: r.x + 2, y: r.y + 2, width: Math.max(r.w - 4, 0), height: Math.max(r.h - 4, 0), rx: 6, fill, stroke, "stroke-width": S.file === r.f ? 2.5 : 1 }, g);
+    if (!grep && used) {
+      const share = Math.min(sentBy.get(r.f).reduce((s, n) => s + n.tokens, 0) / R.files[r.f][0], 1);
+      const hh = Math.max((r.h - 4) * share, 3);
+      el("rect", { class: "slice", x: r.x + 2, y: r.y + r.h - 2 - hh, width: Math.max(r.w - 4, 0), height: hh, rx: 6, fill: "rgba(79,209,232,0.42)" }, g);
+    }
+    if (r.w > 64 && r.h > 30) {
+      const name = r.f.split("/").pop(), cap = Math.floor((r.w - 14) / 7);
+      const t1 = el("text", { x: r.x + 9, y: r.y + 18, "font-size": 12, "font-weight": 600, "font-family": "JetBrains Mono, monospace", fill: used ? (grep ? "#FFD9A8" : "#C8F4FB") : "#8C96AD" }, g);
+      t1.textContent = name.length > cap ? name.slice(0, Math.max(cap - 1, 3)) + "…" : name;
+      if (r.h > 44) { const t2 = el("text", { x: r.x + 9, y: r.y + 33, "font-size": 11, "font-family": "JetBrains Mono, monospace", fill: "#8C96AD" }, g); t2.textContent = fmt(R.files[r.f][0]); }
+    }
+    g.addEventListener("mousemove", (ev) => showTip(ev, `${r.f} · ${fmt(R.files[r.f][0])} tokens`));
+    g.addEventListener("mouseleave", hideTip);
+    const pick = () => { S.file = r.f; drawMap(); };
+    g.addEventListener("click", pick); g.addEventListener("keydown", (ev) => { if (ev.key === "Enter") pick(); });
+  }
+  const f = S.file || W.target.file, fns = sentBy.get(f) || [];
+  $("sf-path").textContent = f;
+  $("sf-whole").textContent = fmt(R.files[f][0]);
+  $("sf-read").textContent = fns.length ? (grep ? fmt(R.files[f][0]) : fmt(fns.reduce((s, n) => s + n.tokens, 0))) : "0";
+  $("sf-funcs").textContent = fns.length ? (grep ? "Read whole: " : "Sent: ") + fns.map((n) => short(n.key)).join(", ") : "Not on the path for this question.";
+}
+
+// ---------------- agent race ----------------
+function drawRace() {
+  const runs = S.runs, lanes = $("lanes"); lanes.innerHTML = "";
+  if (!runs.length) { lanes.append(html("p", "note", "No agent runs yet: run agent_bench.py for this repo.")); return; }
+  const agg = (m) => { const rs = runs.filter((r) => r.mode === m); return { cost: rs.reduce((s, r) => s + r.cost, 0), time: rs.reduce((s, r) => s + r.api_s, 0), f: rs.reduce((s, r) => s + +r.found.split("/")[0], 0), t: rs.reduce((s, r) => s + +r.found.split("/")[1], 0), n: rs.length }; };
+  const A = { grep: agg("grep"), codegraph: agg("codegraph") };
+  const maxC = Math.max(A.grep.cost, A.codegraph.cost), maxT = Math.max(A.grep.time, A.codegraph.time);
+  for (const [m, name, color, cls] of [["grep", "Claude Code + grep", "var(--amber)", "burn"], ["codegraph", "Claude Code + CodeGraph", "var(--cyan)", "flow"]]) {
+    const a = A[m], lane = html("div", "lane");
+    const h = html("h3"); const sw = html("span", "sw"); sw.style.background = color; h.append(sw, document.createTextNode(name)); lane.append(h);
+    const trio = html("div", "trio");
+    const mk = (label) => { const s = html("div", "stat"); s.append(html("span", null, label), html("span")); trio.append(s); return s.lastChild; };
+    const fv = mk("Callers found"), cv = mk("Cost"), tv = mk("API time"); lane.append(trio);
+    for (const [label, v, mx, unit] of [["cost", a.cost, maxC, "$"], ["time", a.time, maxT, "s"]]) {
+      const d = html("div"); const hh = html("div", "bar-h"); hh.append(html("span", null, label === "cost" ? "Cost" : "API time"), html("span", "mono", unit === "$" ? "$" + v.toFixed(2) : Math.round(v) + "s"));
+      const t = html("div", "track"), f = html("div", "fill " + cls); t.append(f); d.append(hh, t); lane.append(d);
+      f.style.transition = reduced ? "none" : "width 2.2s linear"; grow(f, (100 * v / mx).toFixed(1));
+    }
+    countUp(fv, a.f, (v) => Math.round(v) + "/" + a.t); countUp(cv, a.cost, (v) => "$" + v.toFixed(2)); countUp(tv, a.time, (v) => Math.round(v) + "s");
+    fv.style.color = color; lanes.append(lane);
+  }
+  const tb = $("runs"); tb.innerHTML = `<thead><tr><th>Question</th><th>Mode</th><th class="n">Run</th><th class="n">Found</th><th class="n">Cost</th><th class="n">API time</th><th class="n">Turns</th></tr></thead>`;
+  const body = html("tbody");
+  for (const r of runs) { const tr = html("tr", r.mode === "codegraph" ? "me" : ""); [r.question, r.mode, r.run, r.found, "$" + r.cost.toFixed(4), Math.round(r.api_s) + "s", r.turns].forEach((v, i) => tr.append(html("td", i > 1 ? "n" : "", String(v)))); body.append(tr); }
+  tb.append(body);
+  $("race-note").textContent = `${runs.length} runs, model as configured in agent_bench.py. Costs vary run to run with prompt caching.`;
+}
+$("replay").onclick = drawRace;
+
+// ---------------- wiring ----------------
+$("dir-in").onclick = () => { S.dir = "in"; query(); };
+$("dir-out").onclick = () => { S.dir = "out"; query(); };
+$("d1").onclick = () => { S.depth = 1; query(); };
+$("d2").onclick = () => { S.depth = 2; query(); };
+$("m-grep").onclick = () => { S.mode = "grep"; drawMap(); };
+$("m-graph").onclick = () => { S.mode = "graph"; drawMap(); };
+function pickSymbol(text) { const s = text.trim(); if (!s) return; S.symbol = s; S.file = null; query(); }
+$("q").addEventListener("change", () => pickSymbol($("q").value));
+$("q").addEventListener("keydown", (ev) => { if (ev.key === "Enter") pickSymbol($("q").value); });
+
+(async function start() {
+  try {
+    S.repo = await api.repo();
+    const st = S.repo.stats;
+    $("dot").className = "dot live"; $("status").textContent = "Live";
+    $("stats").innerHTML = ""; [`${S.repo.repo}`, `${fmt(st.functions)} functions · ${fmt(st.classes)} classes`, `${fmt(st.calls)} calls · ${fmt(st.learned)} learned`].forEach((l) => $("stats").append(html("div", null, l)));
+    $("repo-name").textContent = S.repo.repo; document.querySelectorAll(".repo-name2").forEach((e) => (e.textContent = S.repo.repo));
+    const dl = $("syms"); for (const s of S.repo.symbols) { const o = document.createElement("option"); o.value = short(s.key); o.label = s.file; dl.append(o); }
+    const names = new Set(S.repo.symbols.map((s) => short(s.key)));
+    const presets = [["Style.__add__", "style + style"], ["Text.__len__", "len(text)"], ["Console.print", "entry point"], ["Text.truncate", "called by name"]].filter(([k]) => names.has(k));
+    for (const [k, why] of presets) { const b = html("button", "chip"); b.dataset.sym = k; b.append(document.createTextNode(k)); const em = html("em", null, why); b.append(em); b.onclick = () => { S.symbol = k; S.file = null; query(); }; $("presets").append(b); }
+    if (!names.has(S.symbol)) S.symbol = presets[0] ? presets[0][0] : short(S.repo.symbols[0].key);
+    try { S.runs = await api.agentRuns(); } catch (e) { S.runs = []; }
+    route();
+    await query();
+  } catch (e) {
+    $("dot").className = "dot down"; $("status").textContent = "Server not reachable";
+    banner(`Can't reach the CodeGraph server (${e.message}). Start it with: python ui_server.py <repo>, with HydraDB running.`);
+    route();
+  }
+})();
+</script>
+</body>
+</html>

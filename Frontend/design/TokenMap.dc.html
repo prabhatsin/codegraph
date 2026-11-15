@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CodeGraph — Token map</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0D14}
+a{color:#4FD1E8}a:hover{color:#8FE6F3}
+@keyframes cgBlink{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes cgRise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.cg-blink{animation:cgBlink 1.6s ease-in-out infinite}
+.cg-rise{transform-origin:bottom center;animation:cgRise .8s cubic-bezier(.2,.8,.2,1)}
+.cg-nav:hover{background:#161C2C}
+.cg-tile{transition:background .35s ease,border-color .35s ease,color .35s ease,opacity .35s ease}
+.cg-tile:hover{filter:brightness(1.25)}
+@media (prefers-reduced-motion:reduce){.cg-blink,.cg-rise{animation:none}.cg-tile{transition:none}}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0A0D14; color: #E8ECF4; font-family: Inter, system-ui, sans-serif; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<aside style="flex: 1 1 232px; box-sizing: border-box; padding: 24px 16px; border-right: 1px solid #1F2738; display: flex; flex-direction: column; gap: 28px; background: #0C1019">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px">
+<svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="4" fill="#4FD1E8"></circle><circle cx="5" cy="6" r="2.5" stroke="#4FD1E8" stroke-width="1.5"></circle><circle cx="23" cy="7" r="2.5" stroke="#4FD1E8" stroke-width="1.5"></circle><circle cx="22" cy="22" r="2.5" stroke="#FFB347" stroke-width="1.5"></circle><path d="M7 7.5l4.5 4.5M21 8.5l-4.5 3.8M20.5 20.5l-4-4" stroke="#4FD1E8" stroke-width="1.5"></path></svg>
+<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: -0.02em">CodeGraph</span>
+</div>
+<nav aria-label="Main" style="display: flex; flex-direction: column; gap: 4px">
+<a class="cg-nav" href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #9AA4BA; text-decoration: none; font-size: 14px; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>Overview</a>
+<a class="cg-nav" href="TokenMap.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; background: #161C2C; color: #E8ECF4; text-decoration: none; font-size: 14px; font-weight: 600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4FD1E8" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M12 3v18M3 12h9M12 8h9"></path></svg>Token map</a>
+<a class="cg-nav" href="BlastRadius.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #9AA4BA; text-decoration: none; font-size: 14px; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="2.5"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="9.5" stroke-dasharray="2 3"></circle></svg>Blast radius</a>
+<a class="cg-nav" href="Main.dc.html#bench" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #9AA4BA; text-decoration: none; font-size: 14px; font-weight: 500"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg>Benchmarks</a>
+</nav>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid #1F2738; border-radius: 12px; background: #111623">
+<div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #9AA4BA">Index</div>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span class="cg-blink" style="width: 8px; height: 8px; border-radius: 50%; background: #4FD1E8; flex: none"></span>Fresh · synced 2 min ago</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA4BA">HydraDB · graph store</div>
+</div>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px clamp(16px, 3vw, 40px) 56px; display: flex; flex-direction: column; gap: 22px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 8px; max-width: 720px">
+<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #9AA4BA"><span>acme/payments-api</span><span style="color: #4A5470">/</span><span>token map</span><span style="padding: 3px 8px; border-radius: 999px; border: 1px solid #3A3220; color: #FFB347; font-size: 11px">SAMPLE DATA</span></div>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; letter-spacing: -0.02em">Token map</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #C9D1E0">Every tile is a file, sized by the tokens it costs to read whole. Flip the agent to see what it actually pulled into context for one query.</p>
+</div>
+<div role="group" aria-label="Agent mode" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #161C2C">
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+<button type="button" onClick="{{m.pick}}" style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 9px; font: 600 14px Inter, sans-serif; cursor: pointer; {{m.style}}"><span style="width: 10px; height: 10px; border-radius: 3px; {{m.dot}}"></span>{{m.label}}</button>
+</sc-for>
+</div>
+</header>
+
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; border-radius: 12px; border: 1px solid #1F2738; background: #0F1420">
+<span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #9AA4BA">Query</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #E8ECF4">Trace request → DB write for /refund</span>
+<span style="margin-left: auto; font-size: 13px; color: #9AA4BA">{{fileCount}} files · {{repoTxt}} tokens in repo</span>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 22px; align-items: stretch">
+
+<section aria-label="Repository treemap" style="flex: 3 1 560px; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; align-content: stretch; padding: 12px; border-radius: 18px; border: 1px solid #1F2738; background: #0C1019; min-height: 720px">
+<sc-for list="{{dirs}}" as="d" hint-placeholder-count="7">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 12px; background: #0F1420; border: 1px solid #1A2131; box-sizing: border-box; min-height: 200px; flex: {{d.grow}} 1 {{d.basis}}px">
+<div style="display: flex; justify-content: space-between; gap: 8px; padding: 2px 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px"><span style="color: #E8ECF4; font-weight: 600">{{d.name}}/</span><span style="color: #9AA4BA">{{d.readTxt}}</span></div>
+<div style="flex: 1; display: flex; flex-wrap: wrap; gap: 4px; align-content: stretch">
+<sc-for list="{{d.files}}" as="f" hint-placeholder-count="4">
+<button type="button" class="cg-tile" onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" aria-label="{{f.aria}}" style="position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 4px; padding: 8px; min-height: 64px; border-radius: 8px; text-align: left; cursor: pointer; box-sizing: border-box; font-family: 'JetBrains Mono', monospace; flex: {{f.grow}} 1 {{f.basis}}px; {{f.style}}">
+<span class="cg-rise" style="position: absolute; left: 0; right: 0; bottom: 0; background: rgba(79,209,232,0.38); height: {{f.fill}}%"></span>
+<span style="position: relative; font-size: 12px; font-weight: 600">{{f.name}}</span>
+<span style="position: relative; font-size: 11px; opacity: 0.85">{{f.tokTxt}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</section>
+
+<aside aria-label="Context summary" style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+<div style="display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 18px; border: 1px solid #1F2738; background: #0F1420">
+<span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #9AA4BA">Tokens pulled into context</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 44px; font-weight: 500; letter-spacing: -0.03em; {{accentText}}">{{readTxt}}</span>
+<div style="height: 10px; border-radius: 5px; background: #161C2C; overflow: hidden"><div style="height: 100%; border-radius: 5px; transition: width .5s cubic-bezier(.2,.8,.2,1); width: {{readPct}}%; {{accentBg}}"></div></div>
+<span style="font-size: 13px; color: #C9D1E0">{{readPct}}% of the repo · {{openCount}} files opened</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-top: 6px; border-top: 1px solid #1F2738">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #9AA4BA">Recall</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 20px">{{recall}}</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #9AA4BA">Precision</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 20px">{{precision}}</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #9AA4BA">Wasted reads</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 20px">{{wasted}}</span></div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 22px; border-radius: 18px; border: 1px solid #1F2738; background: #0F1420">
+<span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #9AA4BA">Selected file</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 600; color: #E8ECF4; word-break: break-all">{{sel.path}}</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<span style="padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; {{sel.badgeStyle}}">{{sel.badge}}</span>
+<sc-if value="{{sel.truth}}" hint-placeholder-val="{{ true }}"><span style="padding: 4px 10px; border-radius: 999px; font-size: 12px; background: #161C2C; color: #C9D1E0">in ground truth</span></sc-if>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #9AA4BA">Whole file</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 18px">{{sel.fullTxt}}</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #9AA4BA">Read this run</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 18px">{{sel.readTxt}}</span></div>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.55; color: #C9D1E0">{{sel.note}}</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 18px 22px; border-radius: 18px; border: 1px solid #1F2738; background: #0F1420; font-size: 13px; color: #C9D1E0">
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 14px; height: 14px; border-radius: 4px; background: rgba(255,179,71,0.22); border: 1px solid #FFB347"></span>Read whole by grep agent</div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(to top, rgba(79,209,232,0.5) 40%, #0F1A22 40%); border: 1px solid #4FD1E8"></span>Graph slice — fill height = share of file read</div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #121827; border: 1px solid #1F2738"></span>Never touched</div>
+</div>
+
+</aside>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const s = this.state || {};
+    const mode = s.mode || 'graph';
+    const selPath = s.sel || 'billing/refunds.py';
+    const fmt = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : Math.round(n).toLocaleString('en-US');
+    // [name, tokens, grep?, graph slice (0 = not read), truth?, note]
+    const tree = [
+      ['billing', [['charge.py', 6200, 1, 0, 0, 'Matched "refund" 3× in comments.'], ['refunds.py', 5400, 1, 0.30, 1, 'Graph pulled refund_partial() and RefundRequest only.'], ['invoices.py', 4800, 1, 0, 0, 'Matched "refund" in an invoice status enum.'], ['tax.py', 3100, 1, 0, 0, 'Matched "refund" in a docstring.'], ['currency.py', 2200, 0, 0, 0, 'Not on any path for this query.']]],
+      ['api', [['routes.py', 7400, 1, 0.18, 1, 'Graph pulled the POST /refunds handler and its decorator.'], ['webhooks.py', 5200, 1, 0, 0, 'Matched "refund.created" event name.'], ['auth.py', 3900, 1, 0, 0, 'Opened by grep while chasing an import.'], ['schemas.py', 4400, 1, 0, 0, 'Matched RefundSchema, unused on this path.']]],
+      ['core', [['models.py', 9800, 1, 0.12, 1, 'Graph pulled Refund and PaymentIntent.refund().'], ['db.py', 6100, 0, 0.15, 1, 'Grep missed it: no "refund" string. Graph followed the session.commit() call edge.'], ['retry.py', 2100, 1, 0.40, 0, 'Graph pulled with_retry() as a wrapper on the path.'], ['config.py', 1800, 1, 0, 0, 'Matched REFUND_WINDOW_DAYS.'], ['events.py', 3300, 0, 0.22, 1, 'Grep missed it. Graph followed emit("refund.created").']]],
+      ['workers', [['settle.py', 4200, 1, 0, 0, 'Matched "refund" in a log line.'], ['reconcile.py', 5600, 1, 0, 0, 'Matched refund totals in a report.'], ['email.py', 1900, 1, 0, 0, 'Matched a refund email template.']]],
+      ['tests', [['test_charge.py', 5100, 1, 0, 0, 'Matched a refund fixture.'], ['test_refunds.py', 4600, 1, 0.25, 1, 'Graph pulled test_refund_partial only.'], ['test_webhooks.py', 3800, 1, 0, 0, 'Matched a refund webhook payload.'], ['test_models.py', 4300, 0, 0, 0, 'Not on any path for this query.'], ['conftest.py', 2400, 1, 0, 0, 'Opened by grep for fixtures.']]],
+      ['docs', [['ARCHITECTURE.md', 6800, 1, 0, 0, 'Grep read the whole doc for one paragraph.'], ['README.md', 3200, 1, 0, 0, 'Matched "refund" in the feature list.'], ['CHANGELOG.md', 7900, 1, 0, 0, 'Matched 11 changelog entries.']]],
+      ['scripts', [['migrate.py', 2600, 0, 0, 0, 'Not on any path for this query.'], ['seed.py', 1700, 1, 0, 0, 'Matched seeded refund rows.']]]
+    ];
+    let repo = 0, read = 0, opened = 0, hit = 0, truthN = 0, fileCount = 0;
+    let sel = null;
+    const dirs = tree.map(([dir, files]) => {
+      let dirTotal = 0, dirRead = 0;
+      const fs = files.map(([name, tok, g, slice, truth, note]) => {
+        const path = dir + '/' + name;
+        const used = mode === 'grep' ? !!g : slice > 0;
+        const r = mode === 'grep' ? (g ? tok : 0) : Math.round(tok * slice);
+        repo += tok; read += r; dirTotal += tok; dirRead += r; fileCount++;
+        if (used) opened++;
+        if (truth) truthN++;
+        if (used && truth) hit++;
+        const isSel = path === selPath;
+        let style;
+        if (mode === 'grep' && used) style = 'background:rgba(255,179,71,0.18);border:1px solid rgba(255,179,71,0.6);color:#FFD9A8;';
+        else if (mode === 'graph' && used) style = 'background:#0F1A22;border:1px solid #4FD1E8;color:#C8F4FB;';
+        else style = 'background:#121827;border:1px solid #1F2738;color:#8C96AD;';
+        if (isSel) style += 'outline:2px solid #E8ECF4;outline-offset:1px;';
+        const file = {
+          name, tokTxt: fmt(tok), grow: tok, basis: Math.round(tok / 55), style,
+          fill: mode === 'graph' && used ? Math.round(slice * 100) : 0,
+          pressed: isSel ? 'true' : 'false',
+          aria: path + ', ' + fmt(tok) + ' tokens' + (used ? ', read' : ', not read'),
+          pick: () => this.setState({ sel: path })
+        };
+        if (isSel) {
+          sel = {
+            path, truth: !!truth, fullTxt: fmt(tok) + ' tok', readTxt: fmt(r) + ' tok', note,
+            badge: used ? (mode === 'grep' ? 'Read whole · grep' : 'Sliced · graph ' + Math.round(slice * 100) + '%') : 'Not read',
+            badgeStyle: used ? (mode === 'grep' ? 'background:rgba(255,179,71,0.18);color:#FFD9A8;' : 'background:#12252B;color:#A6EEF8;') : 'background:#161C2C;color:#C9D1E0;'
+          };
+        }
+        return file;
+      });
+      return { name: dir, files: fs, grow: dirTotal, basis: Math.round(dirTotal / 70), readTxt: fmt(dirRead) + ' / ' + fmt(dirTotal) };
+    });
+    const modes = [['grep', 'Grep agent', '#FFB347'], ['graph', 'CodeGraph agent', '#4FD1E8']].map(([id, label, c]) => ({
+      label, pick: () => this.setState({ mode: id }), dot: 'background:' + c + ';',
+      style: id === mode ? 'background:#E8ECF4;color:#0A0D14;' : 'background:transparent;color:#C9D1E0;'
+    }));
+    const isGraph = mode === 'graph';
+    return {
+      modes, dirs, sel: sel || { path: selPath, truth: false, fullTxt: '—', readTxt: '—', note: '', badge: '', badgeStyle: '' },
+      fileCount, repoTxt: fmt(repo), readTxt: fmt(read), readPct: (read / repo * 100).toFixed(1), openCount: opened,
+      recall: (hit / truthN).toFixed(2), precision: opened ? (hit / opened).toFixed(2) : '—', wasted: opened - hit,
+      accentText: isGraph ? 'color:#4FD1E8;' : 'color:#FFB347;',
+      accentBg: isGraph ? 'background:#4FD1E8;' : 'background:#FFB347;'
+    };
+  }
+}
+</script>
+</body>
+</html>
