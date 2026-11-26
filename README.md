@@ -242,7 +242,7 @@ For `requests`, whose own tests need internet, the ground truth is 13 hand-writt
 - One HydraDB database holds one repo at a time; switching repos means a fresh store and a re-index.
 
 ## Roadmap
-
+- build a plugin for all the existing agents 
 - Confidence on edges: confirmed by tests > static > guess, so the most trusted code is sent first.
 - `get_context(symbol, max_tokens)`, which fits the agent's token budget.
 - A CLI for agents without MCP (Pi, Aider).
